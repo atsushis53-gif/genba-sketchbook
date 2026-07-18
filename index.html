@@ -207,6 +207,17 @@
     font-size:.85rem;padding:36px 0;letter-spacing:.1em;
   }
 
+  /* ---- 月の区切り（複数月に溜まったら現れる） ---- */
+  .month-header{
+    display:flex;align-items:baseline;gap:8px;
+    font-family:var(--mincho);font-size:.82rem;color:var(--sub);
+    letter-spacing:.12em;margin:20px 2px 10px;cursor:pointer;
+    user-select:none;-webkit-user-select:none;
+  }
+  .month-header .month-line{flex:1;border-bottom:1px solid var(--line);transform:translateY(-4px)}
+  .month-arrow{font-size:.68rem;width:1em}
+  .month-count{font-size:.7rem;color:#B4B6AE;font-family:var(--gothic);letter-spacing:.05em}
+
   /* ---- トースト ---- */
   #toast{
     position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));
@@ -330,6 +341,7 @@
 const STORE_KEY   = "genba_sketch_entries";
 const API_KEY_KEY = "genba_sketch_apikey";
 const TWO_LINE_KEY = "genba_sketch_twoline";
+const COLLAPSE_KEY = "genba_sketch_collapsed";
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
 
 const SYSTEM_PROMPT = `あなたは「現場スケッチ帳」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
@@ -432,14 +444,8 @@ function renderEntryText(e){
   }
   return `<div class="entry-text">${escapeHtml(e.text)}</div>`;
 }
-function render(){
-  const list = document.getElementById("entryList");
-  const entries = loadEntries();
-  if (entries.length === 0){
-    list.innerHTML = '<div class="empty">まだ何もない。それでいい。</div>';
-    return;
-  }
-  list.innerHTML = entries.map(e => `
+function entryHtml(e){
+  return `
     <article class="entry" data-id="${e.id}">
       <div class="entry-date">${formatDate(e.date)}</div>
       ${e.place ? `<div class="entry-place">${escapeHtml(e.place)}</div>` : ""}
@@ -450,7 +456,58 @@ function render(){
         <button class="del-btn" type="button" data-act="delete">消す</button>
       </div>
     </article>
-  `).join("");
+  `;
+}
+function monthKey(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return "不明";
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function loadCollapsed(){
+  try{ return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]")); }
+  catch(e){ return new Set(); }
+}
+function saveCollapsed(set){
+  localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+}
+function render(){
+  const list = document.getElementById("entryList");
+  const entries = loadEntries();
+  if (entries.length === 0){
+    list.innerHTML = '<div class="empty">まだ何もない。それでいい。</div>';
+    return;
+  }
+
+  // 全部が同じ月のうちは区切りを出さず、ただ並べる
+  const months = [...new Set(entries.map(e => monthKey(e.date)))];
+  if (months.length <= 1){
+    list.innerHTML = entries.map(entryHtml).join("");
+    return;
+  }
+
+  const collapsed = loadCollapsed();
+  const counts = {};
+  for (const e of entries) counts[monthKey(e.date)] = (counts[monthKey(e.date)] || 0) + 1;
+
+  let html = "";
+  let cur = null;
+  for (const e of entries){
+    const mk = monthKey(e.date);
+    if (mk !== cur){
+      if (cur !== null) html += "</div>";
+      cur = mk;
+      const closed = collapsed.has(mk);
+      html += `<div class="month-header" data-month="${escapeHtml(mk)}">
+        <span class="month-arrow">${closed ? "▸" : "▾"}</span>${escapeHtml(mk)}
+        <span class="month-line"></span>
+        <span class="month-count">${counts[mk]}件</span>
+      </div>`;
+      html += `<div class="month-group"${closed ? " hidden" : ""}>`;
+    }
+    html += entryHtml(e);
+  }
+  html += "</div>";
+  list.innerHTML = html;
 }
 
 /* ---------- 書き方モード（一行／二行写生） ---------- */
@@ -512,6 +569,18 @@ document.getElementById("saveBtn").addEventListener("click", () => {
 
 /* ---------- 一覧のクリック（判定・削除） ---------- */
 document.getElementById("entryList").addEventListener("click", async (ev) => {
+  // 月の区切りタップで格納・展開
+  const header = ev.target.closest(".month-header");
+  if (header){
+    const mk = header.dataset.month;
+    const collapsed = loadCollapsed();
+    if (collapsed.has(mk)) collapsed.delete(mk);
+    else collapsed.add(mk);
+    saveCollapsed(collapsed);
+    render();
+    return;
+  }
+
   const btn = ev.target.closest("button[data-act]");
   if (!btn) return;
   const card = btn.closest(".entry");
