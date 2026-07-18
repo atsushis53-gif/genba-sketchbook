@@ -1,0 +1,16 @@
+{
+  "name": "現場スケッチ帳",
+  "short_name": "スケッチ帳",
+  "description": "付箋は現場でしか書けない。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F2EE",
+  "theme_color": "#F1F2EE",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

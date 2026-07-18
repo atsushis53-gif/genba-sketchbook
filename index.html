@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F1F2EE">
+<title>現場スケッチ帳</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#F1F2EE;
+    --ink:#26282A;
+    --card:#FBFBF8;
+    --line:#DDDED8;
+    --sub:#6E7168;
+    --utsuru:#B5432F;
+    --shasei:#B07A28;
+    --utsuranai:#9A9D95;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS PMincho",serif;
+    --gothic:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--gothic);
+    line-height:1.7;
+    min-height:100vh;
+    padding:0 14px calc(48px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:640px;margin:0 auto}
+
+  header{
+    padding:26px 2px 14px;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:18px;
+  }
+  h1{
+    font-family:var(--mincho);
+    font-size:1.45rem;
+    font-weight:600;
+    letter-spacing:.14em;
+  }
+  .subtitle{
+    font-family:var(--mincho);
+    font-size:.78rem;
+    color:var(--sub);
+    letter-spacing:.1em;
+    margin-top:2px;
+  }
+  .gear{
+    background:none;border:1px solid var(--line);border-radius:8px;
+    color:var(--sub);font-size:.78rem;padding:6px 10px;cursor:pointer;
+    font-family:var(--gothic);flex-shrink:0;
+  }
+
+  /* ---- 入力 ---- */
+  .entry-form{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 16px 14px;
+    box-shadow:0 1px 3px rgba(38,40,42,.05);
+  }
+  .entry-form label{
+    display:block;font-size:.72rem;color:var(--sub);
+    letter-spacing:.12em;margin-bottom:4px;
+  }
+  #placeInput{
+    width:100%;border:none;border-bottom:1px solid var(--line);
+    background:transparent;font-family:var(--mincho);font-size:.95rem;
+    padding:6px 2px;outline:none;color:var(--ink);
+  }
+  #placeInput:focus{border-bottom-color:var(--utsuru)}
+  #textInput{
+    width:100%;min-height:110px;border:none;background:transparent;
+    font-family:var(--mincho);font-size:1.05rem;line-height:1.9;
+    padding:8px 2px;outline:none;resize:vertical;color:var(--ink);
+    margin-top:14px;
+  }
+  #placeInput::placeholder,#textInput::placeholder{color:#B4B6AE;font-family:var(--mincho)}
+  .hint{
+    font-size:.72rem;color:var(--sub);letter-spacing:.05em;
+    margin-top:6px;
+  }
+  .hint + .hint{margin-top:2px}
+
+  /* ---- 二行写生モード（実験中） ---- */
+  .dual-label{
+    display:block;font-size:.72rem;color:var(--sub);
+    letter-spacing:.12em;margin-top:14px;
+  }
+  .dual-ta{
+    width:100%;min-height:52px;border:none;border-bottom:1px solid var(--line);
+    background:transparent;font-family:var(--mincho);font-size:1.02rem;line-height:1.8;
+    padding:6px 2px;outline:none;resize:vertical;color:var(--ink);
+  }
+  .dual-ta::placeholder{color:#B4B6AE;font-family:var(--mincho)}
+  .dual-ta:focus{border-bottom-color:var(--utsuru)}
+  .line-tag{
+    display:inline-block;font-size:.66rem;color:var(--sub);
+    border:1px solid var(--line);border-radius:4px;
+    padding:0 4px;margin-right:7px;font-family:var(--gothic);
+    vertical-align:.14em;line-height:1.5;
+  }
+  .form-actions{display:flex;justify-content:flex-end;margin-top:12px}
+  #saveBtn{
+    font-family:var(--mincho);
+    background:var(--ink);color:var(--card);
+    border:none;border-radius:6px;
+    font-size:.95rem;letter-spacing:.25em;text-indent:.25em;
+    padding:10px 26px;cursor:pointer;
+  }
+  #saveBtn:active{opacity:.8}
+
+  /* ---- ツール列 ---- */
+  .tools{
+    display:flex;justify-content:flex-end;gap:10px;
+    margin:16px 2px 8px;
+  }
+  .tools button{
+    background:none;border:none;color:var(--sub);
+    font-size:.75rem;text-decoration:underline;cursor:pointer;
+    font-family:var(--gothic);
+  }
+
+  /* ---- 一覧 ---- */
+  .entry{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:14px;
+    box-shadow:0 1px 3px rgba(38,40,42,.04);
+    position:relative;
+  }
+  .entry-date{font-size:.72rem;color:var(--sub);letter-spacing:.08em}
+  .entry-place{
+    font-family:var(--mincho);font-size:.82rem;color:var(--sub);
+    margin-top:2px;
+  }
+  .entry-text{
+    font-family:var(--mincho);font-size:1.02rem;line-height:1.95;
+    white-space:pre-wrap;word-break:break-word;
+    margin-top:8px;
+  }
+  .entry-actions{
+    display:flex;justify-content:flex-end;gap:14px;
+    margin-top:10px;
+  }
+  .entry-actions button{
+    background:none;border:none;cursor:pointer;font-family:var(--gothic);
+    font-size:.75rem;
+  }
+  .judge-btn{color:var(--shasei);text-decoration:underline}
+  .del-btn{color:#B4B6AE}
+  .judging{color:var(--sub);font-size:.75rem}
+
+  /* ---- 判定表示 ---- */
+  .judgment{
+    border-top:1px dashed var(--line);
+    margin-top:12px;padding-top:12px;
+  }
+  .verdict{
+    display:flex;align-items:flex-start;gap:10px;
+    margin-bottom:10px;
+  }
+  .stamp{
+    flex-shrink:0;
+    width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    font-family:var(--mincho);font-weight:600;
+    transform:rotate(-6deg);
+    line-height:1.15;
+    margin-top:2px;
+  }
+  .stamp.utsuru{
+    border:2px solid var(--utsuru);color:var(--utsuru);font-size:.8rem;letter-spacing:.05em;
+  }
+  .stamp.shasei{
+    border:2px solid var(--shasei);color:var(--shasei);font-size:.8rem;letter-spacing:.05em;
+  }
+  .stamp.utsuranai{
+    border:2px dashed var(--utsuranai);color:var(--utsuranai);font-size:.62rem;
+  }
+  .verdict-body{min-width:0}
+  .verdict-text{
+    font-family:var(--mincho);font-size:.9rem;line-height:1.7;
+    word-break:break-word;
+  }
+  .verdict-comment{
+    font-size:.76rem;color:var(--sub);margin-top:2px;line-height:1.6;
+  }
+  .overall{
+    font-size:.78rem;color:var(--sub);
+    border-left:3px solid var(--line);
+    padding-left:10px;margin-top:6px;line-height:1.7;
+  }
+
+  .empty{
+    text-align:center;color:#B4B6AE;font-family:var(--mincho);
+    font-size:.85rem;padding:36px 0;letter-spacing:.1em;
+  }
+
+  /* ---- トースト ---- */
+  #toast{
+    position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--card);
+    font-family:var(--mincho);font-size:.9rem;letter-spacing:.08em;
+    padding:10px 22px;border-radius:24px;
+    opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;
+    white-space:nowrap;z-index:50;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---- 設定 ---- */
+  #settingsOverlay{
+    position:fixed;inset:0;background:rgba(38,40,42,.35);
+    display:none;align-items:center;justify-content:center;
+    padding:20px;z-index:40;
+  }
+  #settingsOverlay.open{display:flex}
+  .settings-panel{
+    background:var(--card);border-radius:12px;
+    width:100%;max-width:420px;
+    padding:22px 20px;
+  }
+  .settings-panel h2{
+    font-family:var(--mincho);font-size:1.05rem;font-weight:600;
+    letter-spacing:.12em;margin-bottom:14px;
+  }
+  .settings-panel label{
+    display:block;font-size:.72rem;color:var(--sub);
+    letter-spacing:.1em;margin:12px 0 4px;
+  }
+  .settings-panel input[type=password],
+  .settings-panel input[type=text],
+  .settings-panel select{
+    width:100%;border:1px solid var(--line);border-radius:6px;
+    padding:9px 10px;font-size:.9rem;background:#fff;
+    font-family:var(--gothic);color:var(--ink);outline:none;
+  }
+  .key-note{font-size:.7rem;color:var(--sub);margin-top:6px;line-height:1.6}
+  .settings-panel label.toggle-row{
+    display:flex;align-items:center;gap:8px;
+    font-size:.85rem;color:var(--ink);letter-spacing:0;
+    margin:16px 0 2px;cursor:pointer;
+  }
+  .settings-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+  .settings-actions button{
+    font-family:var(--gothic);font-size:.85rem;border-radius:6px;
+    padding:8px 18px;cursor:pointer;
+  }
+  #settingsSave{background:var(--ink);color:var(--card);border:none}
+  #settingsClose{background:none;border:1px solid var(--line);color:var(--sub)}
+  .show-key{
+    background:none;border:none;color:var(--sub);font-size:.72rem;
+    text-decoration:underline;cursor:pointer;margin-top:4px;font-family:var(--gothic);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>現場スケッチ帳</h1>
+      <div class="subtitle">付箋は現場でしか書けない。</div>
+    </div>
+    <button class="gear" id="gearBtn" type="button">設定</button>
+  </header>
+
+  <section class="entry-form">
+    <label for="placeInput">現場（どこで・何の前で）</label>
+    <input id="placeInput" type="text" autocomplete="off"
+      placeholder="例：車の中／写真集・帝国ホテルのページ／夕方の現場">
+    <textarea id="textInput"
+      placeholder="今、息どうなった？目はどこ行った？&#10;単語三つでいい。理由禁止。「〜と思う」禁止。"></textarea>
+    <div id="dualInputs" hidden>
+      <label class="dual-label" for="outerInput">外（カメラが外界に映したもの）</label>
+      <textarea id="outerInput" class="dual-ta" placeholder="例：明細に賞与の行を見た"></textarea>
+      <label class="dual-label" for="innerInput">内（身体に映ったもの）</label>
+      <textarea id="innerInput" class="dual-ta" placeholder="例：直後、頭に血が上る"></textarea>
+    </div>
+    <div class="hint">型のヒント：「（見た事実・起きたこと）。直後、（体の変化）」</div>
+    <div class="hint">読者は未来の自分だけ。詩を狙わない。下手なほど信用できる。</div>
+    <div class="form-actions">
+      <button id="saveBtn" type="button">書き留める</button>
+    </div>
+  </section>
+
+  <div class="tools">
+    <button id="exportBtn" type="button">全件を書き出す</button>
+  </div>
+
+  <main id="entryList"></main>
+
+</div>
+
+<div id="toast"></div>
+
+<div id="settingsOverlay">
+  <div class="settings-panel">
+    <h2>設定</h2>
+    <label for="apiKeyInput">Anthropic APIキー</label>
+    <input id="apiKeyInput" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <button class="show-key" id="showKeyBtn" type="button">表示する</button>
+    <div class="key-note">キーはこの端末のブラウザ内（localStorage）にだけ保存される。外部には送らない（判定時にAnthropicのAPIへ直接送信するのみ）。</div>
+    <label for="modelSelect">仕分けに使うモデル</label>
+    <select id="modelSelect">
+      <option value="claude-sonnet-4-6">claude-sonnet-4-6（標準）</option>
+      <option value="claude-sonnet-5">claude-sonnet-5</option>
+      <option value="claude-haiku-4-5">claude-haiku-4-5（軽量・低コスト）</option>
+    </select>
+    <label class="toggle-row" for="twoLineToggle">
+      <input type="checkbox" id="twoLineToggle"> 二行写生モード（実験中）
+    </label>
+    <div class="key-note">外（外界に映ったもの）と内（身体に映ったもの）を分けて書く。片方だけでもいい。揃っているかどうかは判定されない。</div>
+    <div class="settings-actions">
+      <button id="settingsClose" type="button">閉じる</button>
+      <button id="settingsSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const STORE_KEY   = "genba_sketch_entries";
+const API_KEY_KEY = "genba_sketch_apikey";
+const MODEL_KEY   = "genba_sketch_model";
+const TWO_LINE_KEY = "genba_sketch_twoline";
+const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+const SYSTEM_PROMPT = `あなたは「現場スケッチ帳」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
+
+【背景】あっちゃんは「事後創発」の実践中。批評語・説明語ではなく、その場にいた身体の一次データを付箋として書く訓練をしている。あなたの仕事は採点ではなく仕分け。合格ゲームにしないこと。
+
+【時間の原則】生データは時間的に「先」にある。身体反応が先で、感情ラベルや批評語はその後の圧縮。コメントで比喩を使うときは時間の比喩（先に／その前に／圧縮の前）だけを使い、空間の比喩（降りる／掘る／深い）は使わない。命令形は使わず、質問形を優先する。
+
+【判定は3種のみ】
+- 映る：監視カメラと計器に映る事実。身体の動き（息が止まった/足が止まった/喉が詰まった/目が吸われた/三歩戻った/時間がわからなくなった）、現場の具体（奥が暗い/臭いが来る/青のでかいやつ）。文法は問わない。「体の中が熱い」は形容詞だが映るので満点。「胸がしめつけられる」「頭に血が上る」等の身体データは、怒り・くやしさの文脈でも映る。品詞ではなく計器に映るかで判定する。
+- 写生：惜しい。圧縮が始まっている。(a)身体っぽいが場所や動きが不明（「刺さった」→どこに何が来た?）、比喩混じり（「〜ようだ」）、対象側か身体側か不明。(b)「くやしい」「腹立たしい」「懐かしい」等の感情ラベル（事後の圧縮）。必ず質問形の補助質問を添える。(a)は「先に映ってたものは?」の系統、(b)は「そのとき体はどうなってた?」の系統。
+- 映らない：批評語・評価ラベル（重厚感/絶妙/統一されている）、説明文（現場にいなくても書ける言葉）、理由・分析（「なぜ」は編集室の言葉）、推測（「〜と思う」）、物語（「代償を背負った」）。裁きの言葉（「ふざけんな」等、他者への評価の再上演）もここ。ただし説教はせず、「そのとき体はどうなってた?」と補助質問を添えるだけでよい。
+
+【禁止事項】
+- 点数化しない。「何点」「合格率」は言わない。写生の達成度も評価しない。
+- 詩的な言い換え例を提案しない（詩を狙わせない）。
+- 感情ラベルの候補を提示しない（「これは怒り?くやしさ?」等の選択肢を出さない）。ラベルの分化は本人の事後に委ねる。
+- 褒めすぎない。励ましの決まり文句・ポジティブ変換をしない。事実として仕分ける。ただし冷たくはなく、短く率直に。
+- 読者は未来の本人だけ。他人にわかりやすいかは判定基準にしない。
+- スケッチが外界の行と身体の行の二行で来ることがあるが、二行揃っているかは判定しない。片方だけで十分。
+
+【出力】JSONのみ。前置き・コードフェンス禁止。形式：
+{"verdicts":[{"text":"（元の一文）","judge":"映る|写生|映らない","comment":"短い一言（写生/映らないの場合は質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。物語が走っていたら指摘する。命令形は使わない）"}
+
+入力が複数文なら文ごとに分けて判定する。`;
+
+/* ---------- ストレージ ---------- */
+function loadEntries(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveEntries(entries){
+  localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+}
+
+/* ---------- ユーティリティ ---------- */
+const WEEKDAYS = ["日","月","火","水","木","金","土"];
+function formatDate(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}（${WEEKDAYS[d.getDay()]}） ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function escapeHtml(s){
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------- 描画 ---------- */
+function judgeClass(judge){
+  if (judge === "映る") return "utsuru";
+  if (judge === "写生" || judge === "一段降りろ") return "shasei";
+  return "utsuranai";
+}
+// 旧データ（一段降りろ）も新表記で表示する
+function judgeLabel(judge){
+  return judge === "一段降りろ" ? "写生" : (judge || "");
+}
+function renderJudgment(j){
+  if (!j || !Array.isArray(j.verdicts)) return "";
+  let html = '<div class="judgment">';
+  for (const v of j.verdicts){
+    const cls = judgeClass(v.judge);
+    let comment = v.comment || "";
+    if (cls === "shasei"){
+      comment = "写生に戻ろう。" + (comment || "先に映ってたものは？");
+    }
+    html += `<div class="verdict">
+      <div class="stamp ${cls}">${escapeHtml(judgeLabel(v.judge))}</div>
+      <div class="verdict-body">
+        <div class="verdict-text">${escapeHtml(v.text||"")}</div>
+        ${comment ? `<div class="verdict-comment">${escapeHtml(comment)}</div>` : ""}
+      </div>
+    </div>`;
+  }
+  if (j.overall){
+    html += `<div class="overall">${escapeHtml(j.overall)}</div>`;
+  }
+  html += "</div>";
+  return html;
+}
+// 二行写生（外／内）の付箋はタグ付きで表示する
+function renderEntryText(e){
+  if (e.outer || e.inner){
+    let h = "";
+    if (e.outer) h += `<div><span class="line-tag">外</span>${escapeHtml(e.outer)}</div>`;
+    if (e.inner) h += `<div><span class="line-tag">内</span>${escapeHtml(e.inner)}</div>`;
+    return `<div class="entry-text">${h}</div>`;
+  }
+  return `<div class="entry-text">${escapeHtml(e.text)}</div>`;
+}
+function render(){
+  const list = document.getElementById("entryList");
+  const entries = loadEntries();
+  if (entries.length === 0){
+    list.innerHTML = '<div class="empty">まだ何もない。それでいい。</div>';
+    return;
+  }
+  list.innerHTML = entries.map(e => `
+    <article class="entry" data-id="${e.id}">
+      <div class="entry-date">${formatDate(e.date)}</div>
+      ${e.place ? `<div class="entry-place">${escapeHtml(e.place)}</div>` : ""}
+      ${renderEntryText(e)}
+      ${renderJudgment(e.judgment)}
+      <div class="entry-actions">
+        ${e.judgment ? "" : `<button class="judge-btn" type="button" data-act="judge">仕分けてもらう（任意）</button>`}
+        <button class="del-btn" type="button" data-act="delete">消す</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+/* ---------- 書き方モード（一行／二行写生） ---------- */
+function twoLineOn(){
+  return localStorage.getItem(TWO_LINE_KEY) === "1";
+}
+function applyWriteMode(){
+  const on = twoLineOn();
+  document.getElementById("textInput").hidden = on;
+  document.getElementById("dualInputs").hidden = !on;
+}
+
+/* ---------- 保存 ---------- */
+document.getElementById("saveBtn").addEventListener("click", () => {
+  const placeEl = document.getElementById("placeInput");
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    date: new Date().toISOString(),
+    place: placeEl.value.trim(),
+    text: "",
+    judgment: null
+  };
+
+  if (twoLineOn()){
+    const outerEl = document.getElementById("outerInput");
+    const innerEl = document.getElementById("innerInput");
+    const outer = outerEl.value.trim();
+    const inner = innerEl.value.trim();
+    if (!outer && !inner){
+      showToast("本文が空。一語でいい。");
+      outerEl.focus();
+      return;
+    }
+    // 片方だけでも保存できる。揃いのチェックはしない。
+    entry.outer = outer;
+    entry.inner = inner;
+    entry.text = [outer, inner].filter(Boolean).join("\n");
+    outerEl.value = "";
+    innerEl.value = "";
+  } else {
+    const textEl = document.getElementById("textInput");
+    const text = textEl.value.trim();
+    if (!text){
+      showToast("本文が空。一語でいい。");
+      textEl.focus();
+      return;
+    }
+    entry.text = text;
+    textEl.value = "";
+  }
+
+  const entries = loadEntries();
+  entries.unshift(entry);
+  saveEntries(entries);
+  placeEl.value = "";
+  render();
+  showToast("書いた。それでいい。");
+});
+
+/* ---------- 一覧のクリック（判定・削除） ---------- */
+document.getElementById("entryList").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]");
+  if (!btn) return;
+  const card = btn.closest(".entry");
+  const id = card.dataset.id;
+
+  if (btn.dataset.act === "delete"){
+    if (!confirm("この付箋を消す？")) return;
+    saveEntries(loadEntries().filter(e => e.id !== id));
+    render();
+    return;
+  }
+
+  if (btn.dataset.act === "judge"){
+    await judgeEntry(id, btn);
+  }
+});
+
+/* ---------- Claude 判定 ---------- */
+async function judgeEntry(id, btn){
+  const apiKey = localStorage.getItem(API_KEY_KEY);
+  if (!apiKey){
+    showToast("先にAPIキーを設定して");
+    openSettings();
+    return;
+  }
+  const entries = loadEntries();
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+
+  btn.disabled = true;
+  btn.classList.add("judging");
+  btn.textContent = "仕分け中…";
+
+  try{
+    const model = localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: [{
+          role: "user",
+          content: `現場：${entry.place || "（未記入）"}\nスケッチ：\n${entry.text}`
+        }]
+      })
+    });
+    if (!res.ok){
+      const errBody = await res.text().catch(()=> "");
+      throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);
+    }
+    const data = await res.json();
+    const textOut = (data.content || [])
+      .filter(b => b.type === "text")
+      .map(b => b.text)
+      .join("");
+    const cleaned = textOut
+      .replace(/^\s*```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+    const judgment = JSON.parse(cleaned);
+    if (!Array.isArray(judgment.verdicts)) throw new Error("形式が想定と違う");
+
+    entry.judgment = judgment;
+    saveEntries(entries);
+    render();
+  }catch(err){
+    console.error("仕分けエラー:", err);
+    showToast("仕分けに失敗した。少し待ってもう一度。");
+    btn.disabled = false;
+    btn.classList.remove("judging");
+    btn.textContent = "仕分けてもらう（任意）";
+  }
+}
+
+/* ---------- 書き出し ---------- */
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  const entries = loadEntries();
+  if (entries.length === 0){
+    showToast("まだ何もない");
+    return;
+  }
+  const lines = [];
+  lines.push("# 現場スケッチ帳");
+  lines.push("");
+  for (const e of entries){
+    lines.push(`## ${formatDate(e.date)}`);
+    if (e.place) lines.push(`現場：${e.place}`);
+    lines.push("");
+    if (e.outer || e.inner){
+      if (e.outer) lines.push(`外｜${e.outer}`);
+      if (e.inner) lines.push(`内｜${e.inner}`);
+    } else {
+      lines.push(e.text);
+    }
+    if (e.judgment && Array.isArray(e.judgment.verdicts)){
+      lines.push("");
+      for (const v of e.judgment.verdicts){
+        lines.push(`【${judgeLabel(v.judge)}】${v.text}${v.comment ? `（${v.comment}）` : ""}`);
+      }
+      if (e.judgment.overall) lines.push(`― ${e.judgment.overall}`);
+    }
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+  }
+  const textAll = lines.join("\n");
+  try{
+    await navigator.clipboard.writeText(textAll);
+    showToast(`全${entries.length}件をコピーした`);
+  }catch(e){
+    // クリップボードAPIが使えない環境向けフォールバック
+    const ta = document.createElement("textarea");
+    ta.value = textAll;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try{
+      document.execCommand("copy");
+      showToast(`全${entries.length}件をコピーした`);
+    }catch(e2){
+      showToast("コピーに失敗した");
+    }
+    document.body.removeChild(ta);
+  }
+});
+
+/* ---------- 設定 ---------- */
+const overlay = document.getElementById("settingsOverlay");
+function openSettings(){
+  document.getElementById("apiKeyInput").value = localStorage.getItem(API_KEY_KEY) || "";
+  document.getElementById("modelSelect").value = localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL;
+  document.getElementById("twoLineToggle").checked = twoLineOn();
+  overlay.classList.add("open");
+}
+function closeSettings(){
+  overlay.classList.remove("open");
+}
+document.getElementById("gearBtn").addEventListener("click", openSettings);
+document.getElementById("settingsClose").addEventListener("click", closeSettings);
+overlay.addEventListener("click", ev => { if (ev.target === overlay) closeSettings(); });
+document.getElementById("settingsSave").addEventListener("click", () => {
+  const key = document.getElementById("apiKeyInput").value.trim();
+  const model = document.getElementById("modelSelect").value;
+  if (key) localStorage.setItem(API_KEY_KEY, key);
+  else localStorage.removeItem(API_KEY_KEY);
+  localStorage.setItem(MODEL_KEY, model);
+  if (document.getElementById("twoLineToggle").checked) localStorage.setItem(TWO_LINE_KEY, "1");
+  else localStorage.removeItem(TWO_LINE_KEY);
+  applyWriteMode();
+  closeSettings();
+  showToast("設定を保存した");
+});
+document.getElementById("showKeyBtn").addEventListener("click", () => {
+  const input = document.getElementById("apiKeyInput");
+  const btn = document.getElementById("showKeyBtn");
+  if (input.type === "password"){ input.type = "text"; btn.textContent = "隠す"; }
+  else { input.type = "password"; btn.textContent = "表示する"; }
+});
+
+/* ---------- PWA（https配信時のみ） ---------- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("sw.js").catch(()=>{ /* 失敗しても動作に影響なし */ });
+}
+
+applyWriteMode();
+render();
+</script>
+</body>
+</html>
