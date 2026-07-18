@@ -1,6 +1,6 @@
 {
-  "name": "現場スケッチ帳",
-  "short_name": "スケッチ帳",
+  "name": "現場スケッチ",
+  "short_name": "現場スケッチ",
   "description": "付箋は現場でしか書けない。",
   "lang": "ja",
   "start_url": "./",

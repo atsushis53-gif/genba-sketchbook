@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F1F2EE">
 <meta name="robots" content="noindex">
-<title>現場スケッチ帳</title>
+<title>現場スケッチ</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -282,7 +282,7 @@
 
   <header>
     <div>
-      <h1>現場スケッチ帳</h1>
+      <h1>現場スケッチ</h1>
       <div class="subtitle">付箋は現場でしか書けない。</div>
     </div>
     <button class="gear" id="gearBtn" type="button">設定</button>
@@ -344,7 +344,7 @@ const TWO_LINE_KEY = "genba_sketch_twoline";
 const COLLAPSE_KEY = "genba_sketch_collapsed";
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
 
-const SYSTEM_PROMPT = `あなたは「現場スケッチ帳」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
+const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
 
 【背景】あっちゃんは「事後創発」の実践中。批評語・説明語ではなく、その場にいた身体の一次データを付箋として書く訓練をしている。あなたの仕事は採点ではなく仕分け。合格ゲームにしないこと。
 
@@ -669,7 +669,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     return;
   }
   const lines = [];
-  lines.push("# 現場スケッチ帳");
+  lines.push("# 現場スケッチ");
   lines.push("");
   for (const e of entries){
     lines.push(`## ${formatDate(e.date)}`);
