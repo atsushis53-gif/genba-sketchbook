@@ -313,12 +313,6 @@
     <input id="apiKeyInput" type="password" autocomplete="off" placeholder="sk-ant-...">
     <button class="show-key" id="showKeyBtn" type="button">表示する</button>
     <div class="key-note">キーはこの端末のブラウザ内（localStorage）にだけ保存される。外部には送らない（判定時にAnthropicのAPIへ直接送信するのみ）。</div>
-    <label for="modelSelect">仕分けに使うモデル</label>
-    <select id="modelSelect">
-      <option value="claude-sonnet-5">claude-sonnet-5（標準）</option>
-      <option value="claude-opus-4-8">claude-opus-4-8（高精度・高コスト）</option>
-      <option value="claude-haiku-4-5">claude-haiku-4-5（軽量・低コスト）</option>
-    </select>
     <label class="toggle-row" for="twoLineToggle">
       <input type="checkbox" id="twoLineToggle"> 二行写生モード（実験中）
     </label>
@@ -335,9 +329,8 @@
 
 const STORE_KEY   = "genba_sketch_entries";
 const API_KEY_KEY = "genba_sketch_apikey";
-const MODEL_KEY   = "genba_sketch_model";
 const TWO_LINE_KEY = "genba_sketch_twoline";
-const DEFAULT_MODEL = "claude-sonnet-5";
+const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
 
 const SYSTEM_PROMPT = `あなたは「現場スケッチ帳」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
 
@@ -553,7 +546,6 @@ async function judgeEntry(id, btn){
   btn.textContent = "仕分け中…";
 
   try{
-    const model = localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL;
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -563,7 +555,7 @@ async function judgeEntry(id, btn){
         "anthropic-dangerous-direct-browser-access": "true"
       },
       body: JSON.stringify({
-        model: model,
+        model: MODEL,
         max_tokens: 1000,
         system: SYSTEM_PROMPT,
         messages: [{
@@ -657,9 +649,6 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
 const overlay = document.getElementById("settingsOverlay");
 function openSettings(){
   document.getElementById("apiKeyInput").value = localStorage.getItem(API_KEY_KEY) || "";
-  const modelSel = document.getElementById("modelSelect");
-  modelSel.value = localStorage.getItem(MODEL_KEY) || DEFAULT_MODEL;
-  if (!modelSel.value) modelSel.value = DEFAULT_MODEL; // 保存済みモデルが選択肢から消えた場合の受け皿
   document.getElementById("twoLineToggle").checked = twoLineOn();
   overlay.classList.add("open");
 }
@@ -671,10 +660,8 @@ document.getElementById("settingsClose").addEventListener("click", closeSettings
 overlay.addEventListener("click", ev => { if (ev.target === overlay) closeSettings(); });
 document.getElementById("settingsSave").addEventListener("click", () => {
   const key = document.getElementById("apiKeyInput").value.trim();
-  const model = document.getElementById("modelSelect").value;
   if (key) localStorage.setItem(API_KEY_KEY, key);
   else localStorage.removeItem(API_KEY_KEY);
-  localStorage.setItem(MODEL_KEY, model);
   if (document.getElementById("twoLineToggle").checked) localStorage.setItem(TWO_LINE_KEY, "1");
   else localStorage.removeItem(TWO_LINE_KEY);
   applyWriteMode();
