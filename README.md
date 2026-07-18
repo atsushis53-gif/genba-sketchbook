@@ -54,7 +54,7 @@ GitHub Pages に置くと、無料でHTTPS配信され、PWAとして全画面�
 ## 判定機能の仕様メモ
 
 - Anthropic Messages API を直接呼ぶ（`anthropic-dangerous-direct-browser-access: true` ヘッダー使用。個人利用前提）
-- モデルは設定画面で変更可（既定: claude-sonnet-4-6 / 他に claude-sonnet-5, claude-haiku-4-5）
+- モデルは設定画面で変更可（既定: claude-sonnet-5 / 他に claude-opus-4-8, claude-haiku-4-5）
 - 判定は3種のみ（映る / 写生 / 映らない）。点数化はしない設計。
   - 「写生」は旧称「一段降りろ」（2026-07-18のセッション⑤知見で改称）。表示は「写生に戻ろう」＋質問形の補助質問。
 - 設定に「二行写生モード（実験中）」あり。外（外界に映ったもの）と内（身体に映ったもの）を分けて書ける。片方だけでも保存でき、揃っているかの判定はしない（検証中の仮説のための記録用）。
