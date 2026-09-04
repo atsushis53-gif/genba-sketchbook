@@ -792,6 +792,21 @@ document.getElementById("showKeyBtn").addEventListener("click", () => {
 
 /* ---------- PWA（https配信時のみ） ---------- */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  // 新しい sw.js が主導権を取ったら、その場で読み直す（更新が次の起動まで持ち越されないように）。
+  // ただし書きかけの文字があるときは読み直さない。現場の入力を消さないため。
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return; // 初回登録のときは読み直す必要がない
+    const writing = ["placeInput","textInput","outerInput","innerInput"]
+      .some(id => { const elm = document.getElementById(id); return elm && elm.value.trim(); });
+    if (writing){
+      showToast("新しい版が届いた。書き留めてから開き直して");
+      return;
+    }
+    reloading = true;
+    location.reload();
+  });
   navigator.serviceWorker.register("sw.js").catch(()=>{ /* 失敗しても動作に影響なし */ });
 }
 
