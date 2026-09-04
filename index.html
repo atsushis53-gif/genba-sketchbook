@@ -410,6 +410,7 @@ const COLLAPSE_KEY = "genba_sketch_collapsed";
 const FOCUS_KEY = "genba_sketch_focus";
 const VOICE_KEY = "genba_sketch_voice";
 const RECENT_COUNT = 3;   // 開いた直後に見せる件数。過去は見に行ったときだけ出す
+const JUDGE_TIMEOUT = 45000; // これを過ぎたら仕分けを打ち切る（繋がらないと永久に待つため）
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
 // 仕分けを8種にした版。2＝写生/省略/解釈の3値、v が無いものはさらに古い名称。
 const JUDGMENT_VERSION = 3;
@@ -450,7 +451,13 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 - 同じ付箋の中で、同じ補助質問を繰り返さない。二つ目以降は言い換える。
 - 指し示しも、付箋の中で一度だけ。同じ箇所を二度以上指さない。
   二つ目以降は、短い一言か、空でよい。同じことを何度も言うと、指した先がぼやける。
-- その場にあったものには、短い一言か、空でよい。褒めない。
+- 分類の理由を書かない。ハンコを見れば分かることを、文字で繰り返さない。
+  （「計器に映るもの」「引用できる言葉として流れた」「色として見えたもの」のような、
+  なぜその種類にしたかの説明は、読む人にとって新しいものが何も無い。）
+- このプロンプトの中で使っている言い回し（計器に映る／カメラに映る／外受容 等）を、
+  コメントにそのまま持ち出さない。読む人はその言葉を知らない。
+- 言うことがないときは空にする。空は正しい状態であって、埋める必要はない。
+  その場にあったもの（事実・身体）は、たいてい空でよい。褒めない。
 
 【禁止事項】
 - 点数化しない。「何点」「合格率」は言わない。
@@ -881,6 +888,7 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
 // 「失敗した」だけだと次の一手が決められない。
 function judgeErrorText(err){
   const msg = String((err && err.message) || err || "");
+  if (err && err.name === "AbortError") return "時間切れ。電波を確かめて、もう一度";
   if (msg === "切れた")           return "返事が長すぎて切れた。もう一度試して";
   if (msg === "形式が想定と違う") return "返事の形が違った。もう一度試して";
   if (msg.startsWith("HTTP 401") || msg.startsWith("HTTP 403")) return "APIキーが通らない。設定を確かめて";
@@ -912,9 +920,14 @@ async function judgeEntry(id, btn, mode){
   btn.classList.add("judging");
   btn.textContent = "仕分け中…";
 
+  // 繋がらないまま「仕分け中…」で止まり続けないように、時間を区切る
+  const abort = new AbortController();
+  const timeoutId = setTimeout(() => abort.abort(), JUDGE_TIMEOUT);
+
   try{
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: abort.signal,
       headers: {
         "content-type": "application/json",
         "x-api-key": apiKey,
@@ -959,6 +972,8 @@ async function judgeEntry(id, btn, mode){
     judgeBtns.forEach(b => { b.disabled = false; });
     btn.classList.remove("judging");
     btn.textContent = label;
+  }finally{
+    clearTimeout(timeoutId);
   }
 }
 
