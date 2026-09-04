@@ -19,6 +19,7 @@
     --utsuru:#B5432F;
     --shasei:#B07A28;
     --utsuranai:#9A9D95;
+    --unknown:#C3C5BD;
     --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS PMincho",serif;
     --gothic:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
   }
@@ -150,7 +151,7 @@
     margin-top:8px;
   }
   .entry-actions{
-    display:flex;justify-content:flex-end;gap:14px;
+    display:flex;flex-wrap:wrap;justify-content:flex-end;gap:14px;
     margin-top:10px;
   }
   .entry-actions button{
@@ -186,7 +187,11 @@
     border:2px solid var(--shasei);color:var(--shasei);font-size:.8rem;letter-spacing:.05em;
   }
   .stamp.utsuranai{
-    border:2px dashed var(--utsuranai);color:var(--utsuranai);font-size:.62rem;
+    border:2px dashed var(--utsuranai);color:var(--utsuranai);font-size:.8rem;letter-spacing:.05em;
+  }
+  /* 想定外の判定値（空・モデルの誤出力）。解釈と取り違えないよう一段薄く */
+  .stamp.unknown{
+    border:2px dashed var(--unknown);color:var(--unknown);font-size:1rem;
   }
   .verdict-body{min-width:0}
   .verdict-text{
@@ -343,6 +348,8 @@ const API_KEY_KEY = "genba_sketch_apikey";
 const TWO_LINE_KEY = "genba_sketch_twoline";
 const COLLAPSE_KEY = "genba_sketch_collapsed";
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
+// 判定名を「写生／省略／解釈」に改めた版。v が無い判定は旧名称で保存されている。
+const JUDGMENT_VERSION = 2;
 
 const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
 
@@ -351,9 +358,9 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 【時間の原則】生データは時間的に「先」にある。身体反応が先で、感情ラベルや批評語はその後の圧縮。コメントで比喩を使うときは時間の比喩（先に／その前に／圧縮の前）だけを使い、空間の比喩（降りる／掘る／深い）は使わない。命令形は使わず、質問形を優先する。
 
 【判定は3種のみ】
-- 映る：監視カメラと計器に映る事実。身体の動き（息が止まった/足が止まった/喉が詰まった/目が吸われた/三歩戻った/時間がわからなくなった）、現場の具体（奥が暗い/臭いが来る/青のでかいやつ）。文法は問わない。「体の中が熱い」は形容詞だが映るので満点。「胸がしめつけられる」「頭に血が上る」等の身体データは、怒り・くやしさの文脈でも映る。品詞ではなく計器に映るかで判定する。
-- 写生：惜しい。圧縮が始まっている。(a)身体っぽいが場所や動きが不明（「刺さった」→どこに何が来た?）、比喩混じり（「〜ようだ」）、対象側か身体側か不明。(b)「くやしい」「腹立たしい」「懐かしい」等の感情ラベル（事後の圧縮）。必ず質問形の補助質問を添える。(a)は「先に映ってたものは?」の系統、(b)は「そのとき体はどうなってた?」の系統。
-- 映らない：批評語・評価ラベル（重厚感/絶妙/統一されている）、説明文（現場にいなくても書ける言葉）、理由・分析（「なぜ」は編集室の言葉）、推測（「〜と思う」）、物語（「代償を背負った」）。裁きの言葉（「ふざけんな」等、他者への評価の再上演）もここ。ただし説教はせず、「そのとき体はどうなってた?」と補助質問を添えるだけでよい。
+- 写生：監視カメラと計器に映る事実。身体の動き（息が止まった/足が止まった/喉が詰まった/目が吸われた/三歩戻った/時間がわからなくなった）、現場の具体（奥が暗い/臭いが来る/青のでかいやつ）。文法は問わない。「体の中が熱い」は形容詞だが映るので満点。「胸がしめつけられる」「頭に血が上る」等の身体データは、怒り・くやしさの文脈でも写生。品詞ではなく計器に映るかで判定する。
+- 省略：惜しい。圧縮が始まっている。(a)身体っぽいが場所や動きが不明（「刺さった」→どこに何が来た?）、比喩混じり（「〜ようだ」）、対象側か身体側か不明。(b)「くやしい」「腹立たしい」「懐かしい」等の感情ラベル（事後の圧縮）。必ず質問形の補助質問を添える。(a)は「先に映ってたものは?」の系統、(b)は「そのとき体はどうなってた?」の系統。
+- 解釈：批評語・評価ラベル（重厚感/絶妙/統一されている）、説明文（現場にいなくても書ける言葉）、理由・分析（「なぜ」は編集室の言葉）、推測（「〜と思う」）、物語（「代償を背負った」）。裁きの言葉（「ふざけんな」等、他者への評価の再上演）もここ。ただし説教はせず、「そのとき体はどうなってた?」と補助質問を添えるだけでよい。
 
 【禁止事項】
 - 点数化しない。「何点」「合格率」は言わない。写生の達成度も評価しない。
@@ -364,9 +371,23 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 - スケッチが外界の行と身体の行の二行で来ることがあるが、二行揃っているかは判定しない。片方だけで十分。
 
 【出力】JSONのみ。前置き・コードフェンス禁止。形式：
-{"verdicts":[{"text":"（元の一文）","judge":"映る|写生|映らない","comment":"短い一言（写生/映らないの場合は質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。物語が走っていたら指摘する。命令形は使わない）"}
+{"verdicts":[{"text":"（元の一文）","judge":"写生|省略|解釈","comment":"短い一言（省略/解釈の場合は質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。物語が走っていたら指摘する。命令形は使わない）"}`;
 
-入力が複数文なら文ごとに分けて判定する。`;
+// 仕分けモードごとの分解ルール。SYSTEM_PROMPT の末尾に足して使う。
+const JUDGE_MODES = {
+  split: {
+    label: "分けて仕分ける",
+    rule: "入力が複数文なら文ごとに分けて判定する。"
+  },
+  whole: {
+    label: "まとめて仕分ける",
+    rule: "入力は文ごとに分けない。付箋全体を一つの流れとして読み、verdictsは必ず1件だけ返す。そのtextには入力全体をそのまま入れ、judgeは全体としてどれかを一つ選ぶ。"
+  }
+};
+function systemPromptFor(mode){
+  const m = JUDGE_MODES[mode] || JUDGE_MODES.split;
+  return `${SYSTEM_PROMPT}\n\n${m.rule}`;
+}
 
 /* ---------- ストレージ ---------- */
 function loadEntries(){
@@ -402,26 +423,39 @@ function showToast(msg){
 }
 
 /* ---------- 描画 ---------- */
+// 判定名は新3値のみ。想定外（空・旧名称の取りこぼし・モデルの誤出力）は unknown に落として区別する。
 function judgeClass(judge){
-  if (judge === "映る") return "utsuru";
-  if (judge === "写生" || judge === "一段降りろ") return "shasei";
-  return "utsuranai";
+  if (judge === "写生") return "utsuru";
+  if (judge === "省略") return "shasei";
+  if (judge === "解釈") return "utsuranai";
+  return "unknown";
 }
-// 旧データ（一段降りろ）も新表記で表示する
-function judgeLabel(judge){
-  return judge === "一段降りろ" ? "写生" : (judge || "");
+// 旧名称→新名称の対応表。旧「写生」は新「省略」へ移るので、必ず一度の引き当てで解決する（連鎖置換にしない）。
+const LEGACY_JUDGE = {
+  "一段降りろ": "省略",
+  "映る":       "写生",
+  "写生":       "省略",
+  "映らない":   "解釈"
+};
+// 旧「写生」と新「写生」は文字列が同じで見分けがつかないため、
+// 読み替えるかどうかは判定単位の v（JUDGMENT_VERSION）で決める。
+function isLegacyJudgment(j){
+  return !j || j.v !== JUDGMENT_VERSION;
+}
+function judgeLabel(judge, legacy){
+  const name = judge || "";
+  return legacy ? (LEGACY_JUDGE[name] || name) : name;
 }
 function renderJudgment(j){
   if (!j || !Array.isArray(j.verdicts)) return "";
+  const legacy = isLegacyJudgment(j);
   let html = '<div class="judgment">';
   for (const v of j.verdicts){
-    const cls = judgeClass(v.judge);
-    let comment = v.comment || "";
-    if (cls === "shasei"){
-      comment = "写生に戻ろう。" + (comment || "先に映ってたものは？");
-    }
+    const name = judgeLabel(v.judge, legacy);
+    const cls = judgeClass(name);
+    const comment = v.comment || "";
     html += `<div class="verdict">
-      <div class="stamp ${cls}">${escapeHtml(judgeLabel(v.judge))}</div>
+      <div class="stamp ${cls}">${cls === "unknown" ? "？" : escapeHtml(name)}</div>
       <div class="verdict-body">
         <div class="verdict-text">${escapeHtml(v.text||"")}</div>
         ${comment ? `<div class="verdict-comment">${escapeHtml(comment)}</div>` : ""}
@@ -444,6 +478,12 @@ function renderEntryText(e){
   }
   return `<div class="entry-text">${escapeHtml(e.text)}</div>`;
 }
+// 仕分けは任意。分け方だけ選ぶ（分けて／まとめて）。
+function judgeButtonsHtml(){
+  return Object.entries(JUDGE_MODES).map(([mode, m]) =>
+    `<button class="judge-btn" type="button" data-act="judge" data-mode="${mode}">${escapeHtml(m.label)}</button>`
+  ).join("\n        ");
+}
 function entryHtml(e){
   return `
     <article class="entry" data-id="${e.id}">
@@ -452,7 +492,7 @@ function entryHtml(e){
       ${renderEntryText(e)}
       ${renderJudgment(e.judgment)}
       <div class="entry-actions">
-        ${e.judgment ? "" : `<button class="judge-btn" type="button" data-act="judge">仕分けてもらう（任意）</button>`}
+        ${e.judgment ? "" : judgeButtonsHtml()}
         <button class="del-btn" type="button" data-act="delete">消す</button>
       </div>
     </article>
@@ -594,12 +634,13 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
   }
 
   if (btn.dataset.act === "judge"){
-    await judgeEntry(id, btn);
+    await judgeEntry(id, btn, btn.dataset.mode);
   }
 });
 
 /* ---------- Claude 判定 ---------- */
-async function judgeEntry(id, btn){
+// mode: "split"（文ごとに分ける）／"whole"（付箋全体を一つとして見る）
+async function judgeEntry(id, btn, mode){
   const apiKey = localStorage.getItem(API_KEY_KEY);
   if (!apiKey){
     showToast("先にAPIキーを設定して");
@@ -610,7 +651,10 @@ async function judgeEntry(id, btn){
   const entry = entries.find(e => e.id === id);
   if (!entry) return;
 
-  btn.disabled = true;
+  // 二重発火を防ぐため、同じ付箋の仕分けボタンはまとめて止める
+  const judgeBtns = [...btn.closest(".entry").querySelectorAll('button[data-act="judge"]')];
+  const label = btn.textContent;
+  judgeBtns.forEach(b => { b.disabled = true; });
   btn.classList.add("judging");
   btn.textContent = "仕分け中…";
 
@@ -626,7 +670,7 @@ async function judgeEntry(id, btn){
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1000,
-        system: SYSTEM_PROMPT,
+        system: systemPromptFor(mode),
         messages: [{
           role: "user",
           content: `現場：${entry.place || "（未記入）"}\nスケッチ：\n${entry.text}`
@@ -649,15 +693,16 @@ async function judgeEntry(id, btn){
     const judgment = JSON.parse(cleaned);
     if (!Array.isArray(judgment.verdicts)) throw new Error("形式が想定と違う");
 
+    judgment.v = JUDGMENT_VERSION; // 新名称で保存したことの目印
     entry.judgment = judgment;
     saveEntries(entries);
     render();
   }catch(err){
     console.error("仕分けエラー:", err);
     showToast("仕分けに失敗した。少し待ってもう一度。");
-    btn.disabled = false;
+    judgeBtns.forEach(b => { b.disabled = false; });
     btn.classList.remove("judging");
-    btn.textContent = "仕分けてもらう（任意）";
+    btn.textContent = label;
   }
 }
 
@@ -682,9 +727,10 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       lines.push(e.text);
     }
     if (e.judgment && Array.isArray(e.judgment.verdicts)){
+      const legacy = isLegacyJudgment(e.judgment);
       lines.push("");
       for (const v of e.judgment.verdicts){
-        lines.push(`【${judgeLabel(v.judge)}】${v.text}${v.comment ? `（${v.comment}）` : ""}`);
+        lines.push(`【${judgeLabel(v.judge, legacy) || "？"}】${v.text}${v.comment ? `（${v.comment}）` : ""}`);
       }
       if (e.judgment.overall) lines.push(`― ${e.judgment.overall}`);
     }

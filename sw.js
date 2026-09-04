@@ -1,5 +1,5 @@
 // 現場スケッチ帳 service worker — オフラインでも開けるようにする最小構成
-const CACHE_NAME = "genba-sketch-v1";
+const CACHE_NAME = "genba-sketch-v2";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
