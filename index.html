@@ -16,10 +16,11 @@
     --card:#FBFBF8;
     --line:#DDDED8;
     --sub:#6E7168;
-    --utsuru:#B5432F;
-    --shasei:#B07A28;
-    --utsuranai:#9A9D95;
-    --unknown:#C3C5BD;
+    --body:#B5432F;      /* 身体：その場にあったもの */
+    --fact:#B07A28;      /* 事実：その場にあったもの */
+    --after:#9A9D95;     /* あとから乗ったもの（6種すべて同じ。序列を作らない） */
+    --unknown:#C3C5BD;   /* 想定外 */
+    --accent:#B5432F;    /* 入力欄のフォーカスなど */
     --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS PMincho",serif;
     --gothic:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
   }
@@ -77,7 +78,7 @@
     background:transparent;font-family:var(--mincho);font-size:.95rem;
     padding:6px 2px;outline:none;color:var(--ink);
   }
-  #placeInput:focus{border-bottom-color:var(--utsuru)}
+  #placeInput:focus{border-bottom-color:var(--accent)}
   #textInput{
     width:100%;min-height:110px;border:none;background:transparent;
     font-family:var(--mincho);font-size:1.05rem;line-height:1.9;
@@ -102,7 +103,7 @@
     padding:6px 2px;outline:none;resize:vertical;color:var(--ink);
   }
   .dual-ta::placeholder{color:#B4B6AE;font-family:var(--mincho)}
-  .dual-ta:focus{border-bottom-color:var(--utsuru)}
+  .dual-ta:focus{border-bottom-color:var(--accent)}
   .line-tag{
     display:inline-block;font-size:.66rem;color:var(--sub);
     border:1px solid var(--line);border-radius:4px;
@@ -122,7 +123,7 @@
     color:var(--sub);font-family:var(--gothic);font-size:.78rem;
     padding:8px 14px;cursor:pointer;
   }
-  .mic-btn.on{color:var(--utsuru);border-color:var(--utsuru)}
+  .mic-btn.on{color:var(--accent);border-color:var(--accent)}
   #saveBtn{
     font-family:var(--mincho);
     background:var(--ink);color:var(--card);
@@ -171,7 +172,7 @@
     background:none;border:none;cursor:pointer;font-family:var(--gothic);
     font-size:.75rem;
   }
-  .judge-btn{color:var(--shasei);text-decoration:underline}
+  .judge-btn{color:var(--fact);text-decoration:underline}
   .del-btn{color:#B4B6AE}
   .judging{color:var(--sub);font-size:.75rem}
 
@@ -193,14 +194,15 @@
     line-height:1.15;
     margin-top:2px;
   }
-  .stamp.utsuru{
-    border:2px solid var(--utsuru);color:var(--utsuru);font-size:.8rem;letter-spacing:.05em;
+  /* その場にあったもの＝実線。あとから乗ったもの＝破線。種類は文字で示し、色で序列をつけない */
+  .stamp.body{
+    border:2px solid var(--body);color:var(--body);font-size:.8rem;letter-spacing:.05em;
   }
-  .stamp.shasei{
-    border:2px solid var(--shasei);color:var(--shasei);font-size:.8rem;letter-spacing:.05em;
+  .stamp.fact{
+    border:2px solid var(--fact);color:var(--fact);font-size:.8rem;letter-spacing:.05em;
   }
-  .stamp.utsuranai{
-    border:2px dashed var(--utsuranai);color:var(--utsuranai);font-size:.8rem;letter-spacing:.05em;
+  .stamp.after{
+    border:2px dashed var(--after);color:var(--after);font-size:.8rem;letter-spacing:.05em;
   }
   /* 想定外の判定値（空・モデルの誤出力）。解釈と取り違えないよう一段薄く */
   .stamp.unknown{
@@ -311,7 +313,7 @@
     color:var(--ink);padding:9px 6px;cursor:pointer;
   }
   .key-note{font-size:.7rem;color:var(--sub);margin-top:6px;line-height:1.6}
-  .key-note.warn{color:var(--utsuru)}
+  .key-note.warn{color:var(--accent)}
   .settings-panel label.toggle-row{
     display:flex;align-items:center;gap:8px;
     font-size:.85rem;color:var(--ink);letter-spacing:0;
@@ -356,6 +358,7 @@
     </div>
     <div class="hint">型のヒント：「（見た事実・起きたこと）。直後、（体の変化）」</div>
     <div class="hint">読者は未来の自分だけ。詩を狙わない。下手なほど信用できる。</div>
+    <div class="hint">事実でも、体でも、感情でも、頭に流れた言葉でもいい。仕分けは種類を見るだけで、優劣はない。</div>
     <div class="form-actions">
       <button id="micBtn" class="mic-btn" type="button" hidden>話す</button>
       <button id="saveBtn" type="button">書き留める</button>
@@ -430,30 +433,52 @@ const FOCUS_KEY = "genba_sketch_focus";
 const VOICE_KEY = "genba_sketch_voice";
 const RECENT_COUNT = 3;   // 開いた直後に見せる件数。過去は見に行ったときだけ出す
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
-// 判定名を「写生／省略／解釈」に改めた版。v が無い判定は旧名称で保存されている。
-const JUDGMENT_VERSION = 2;
+// 仕分けを8種にした版。2＝写生/省略/解釈の3値、v が無いものはさらに古い名称。
+const JUDGMENT_VERSION = 3;
 
-const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を仕分けする。
+const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユーザー（あっちゃん）が現場で書いた「言葉によるスケッチ（付箋）」を、種類ごとに仕分けする。
 
 【背景】あっちゃんは「事後創発」の実践中。批評語・説明語ではなく、その場にいた身体の一次データを付箋として書く訓練をしている。あなたの仕事は採点ではなく仕分け。合格ゲームにしないこと。
 
 【時間の原則】生データは時間的に「先」にある。身体反応が先で、感情ラベルや批評語はその後の圧縮。コメントで比喩を使うときは時間の比喩（先に／その前に／圧縮の前）だけを使い、空間の比喩（降りる／掘る／深い）は使わない。命令形は使わず、質問形を優先する。
 
-【判定は3種のみ】
-- 写生：監視カメラと計器に映る事実。身体の動き（息が止まった/足が止まった/喉が詰まった/目が吸われた/三歩戻った/時間がわからなくなった）、現場の具体（奥が暗い/臭いが来る/青のでかいやつ）。文法は問わない。「体の中が熱い」は形容詞だが映るので満点。「胸がしめつけられる」「頭に血が上る」等の身体データは、怒り・くやしさの文脈でも写生。品詞ではなく計器に映るかで判定する。
-- 省略：惜しい。圧縮が始まっている。(a)身体っぽいが場所や動きが不明（「刺さった」→どこに何が来た?）、比喩混じり（「〜ようだ」）、対象側か身体側か不明。(b)「くやしい」「腹立たしい」「懐かしい」等の感情ラベル（事後の圧縮）。必ず質問形の補助質問を添える。(a)は「先に映ってたものは?」の系統、(b)は「そのとき体はどうなってた?」の系統。
-- 解釈：批評語・評価ラベル（重厚感/絶妙/統一されている）、説明文（現場にいなくても書ける言葉）、理由・分析（「なぜ」は編集室の言葉）、推測（「〜と思う」）、物語（「代償を背負った」）。裁きの言葉（「ふざけんな」等、他者への評価の再上演）もここ。ただし説教はせず、「そのとき体はどうなってた?」と補助質問を添えるだけでよい。
+【仕分けは8種。種類に優劣はない】
+
+その場にあったもの：
+- 事実：外界で実際に起きたこと。カメラに映るもの。（明細に賞与の行を見た／奥が暗い／臭いが来る／青のでかいやつ／相手が三歩下がった）
+- 身体：自分の体に起きたこと。計器に映るもの。（息が止まった／足が止まった／喉が詰まった／目が吸われた／頭に血が上る／胸がざわつく／頭がパンパン／体の中が熱い）形容詞でも計器に映れば身体。怒り・くやしさの文脈でも、体の記述なら身体。
+
+あとから乗ったもの：
+- 感情：感情のラベル。（くやしい／腹立たしい／懐かしい／情けない）
+- 思考：頭を流れた言葉そのもの。引用できる形で流れたもの。（「ふざけんな」／「あいつが悪い」／「やらなきゃ」）
+- 解釈：対象に意味や価値を与えた文。批評語・評価・分析・理由づけ・物語。（重厚感がある／絶妙／統一されている／なぜなら〜／代償を背負った）
+- 衝動：行動への傾き。（逃げたい／やりたくない／帰りたい／殴りたい）
+- 記憶：すでに起きたことの想起。（去年も同じことを言われた）
+- 想像：まだ起きていないこと。（また同じことになる／どう思われるだろう）
+
+【迷ったとき】
+- 引用できる言葉が流れたなら思考。対象について語っているなら解釈。
+- 「胸がざわつく」「頭がパンパン」は心ではなく身体。計器に映るものは身体に入れる。
+- 裁きの言葉（「ふざけんな」等）も、流れた言葉として思考に入れる。説教はしない。
+- 一文に複数が混ざっていたら、その文の中心にあるものを一つ選ぶ。
+
+【コメント】
+- あとから乗ったものには、質問形の補助質問を必ず添える。
+  感情・思考・解釈・衝動 → 「そのとき体はどうなってた?」「その前に目に入ったものは?」の系統。
+  記憶・想像 → 「いま体はどうなってる?」の系統（今から離れているので、今へ戻す）。
+- その場にあったものには、短い一言か、空でよい。褒めない。
 
 【禁止事項】
-- 点数化しない。「何点」「合格率」は言わない。写生の達成度も評価しない。
+- 点数化しない。「何点」「合格率」は言わない。
+- 種類に優劣をつけない。「事実の方がよい」「解釈はだめ」とは言わない。ただ種類が違うだけ。
 - 詩的な言い換え例を提案しない（詩を狙わせない）。
-- 感情ラベルの候補を提示しない（「これは怒り?くやしさ?」等の選択肢を出さない）。ラベルの分化は本人の事後に委ねる。
+- 感情ラベルの候補を提示しない（「これは怒り?くやしさ?」等の選択肢を出さない）。感情と仕分けるのはよいが、どの感情かの分化は本人の事後に委ねる。
 - 褒めすぎない。励ましの決まり文句・ポジティブ変換をしない。事実として仕分ける。ただし冷たくはなく、短く率直に。
 - 読者は未来の本人だけ。他人にわかりやすいかは判定基準にしない。
 - スケッチが外界の行と身体の行の二行で来ることがあるが、二行揃っているかは判定しない。片方だけで十分。
 
 【出力】JSONのみ。前置き・コードフェンス禁止。形式：
-{"verdicts":[{"text":"（元の一文）","judge":"写生|省略|解釈","comment":"短い一言（省略/解釈の場合は質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。物語が走っていたら指摘する。命令形は使わない）"}`;
+{"verdicts":[{"text":"（元の一文）","judge":"事実|身体|感情|思考|解釈|衝動|記憶|想像","comment":"短い一言（あとから乗ったものには質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。命令形は使わない。記憶・想像・解釈に偏っていたら、そのことだけ短く伝える。責めない）"}`;
 
 // 仕分けモードごとの分解ルール。SYSTEM_PROMPT の末尾に足して使う。
 const JUDGE_MODES = {
@@ -465,7 +490,7 @@ const JUDGE_MODES = {
   whole: {
     label: "まとめて仕分ける",
     head:  "まとめて仕分けた",
-    rule: "入力は文ごとに分けない。付箋全体を一つの流れとして読み、verdictsは必ず1件だけ返す。そのtextには入力全体をそのまま入れ、judgeは全体としてどれかを一つ選ぶ。"
+    rule: "入力は文ごとに分けない。付箋全体を一つの流れとして読み、verdictsは必ず1件だけ返す。そのtextには入力全体をそのまま入れ、judgeは全体の中心にある種類を一つ選ぶ。"
   }
 };
 function systemPromptFor(mode){
@@ -525,24 +550,37 @@ function showToast(msg){
 }
 
 /* ---------- 描画 ---------- */
-// 判定名は新3値のみ。想定外（空・旧名称の取りこぼし・モデルの誤出力）は unknown に落として区別する。
+// 仕分けは8種。種類に優劣はない。通っている軸は「その場にあったもの／あとから乗ったもの」の一本だけ。
+// 事実＝外界（外受容）、身体＝体内（内受容）。この2つだけが、その場にあったもの。
+const CATEGORY_CLASS = {
+  "事実": "fact",
+  "身体": "body",
+  "感情": "after",
+  "思考": "after",
+  "解釈": "after",
+  "衝動": "after",
+  "記憶": "after",
+  "想像": "after"
+};
+// 3値だった頃（写生／省略／解釈）の判定は、名前はそのまま、帯だけ引き継いで表示する。
+// 「写生」を事実と身体のどちらかに割り振ることはできないので、無理に読み替えない。
+const LEGACY_BAND = { "写生": "body", "省略": "after", "解釈": "after" };
+// 想定外（空・モデルの誤出力）は unknown に落として区別する。
 function judgeClass(judge){
-  if (judge === "写生") return "utsuru";
-  if (judge === "省略") return "shasei";
-  if (judge === "解釈") return "utsuranai";
-  return "unknown";
+  return CATEGORY_CLASS[judge] || LEGACY_BAND[judge] || "unknown";
 }
-// 旧名称→新名称の対応表。旧「写生」は新「省略」へ移るので、必ず一度の引き当てで解決する（連鎖置換にしない）。
+// さらに古い名称（映る／写生／映らない／一段降りろ）→ 3値への対応表。
+// 旧「写生」は「省略」へ移るので、必ず一度の引き当てで解決する（連鎖置換にしない）。
 const LEGACY_JUDGE = {
   "一段降りろ": "省略",
   "映る":       "写生",
   "写生":       "省略",
   "映らない":   "解釈"
 };
-// 旧「写生」と新「写生」は文字列が同じで見分けがつかないため、
-// 読み替えるかどうかは判定単位の v（JUDGMENT_VERSION）で決める。
+// v が付いているものは、その時点の名称のまま読む（v:2＝3値、v:3＝8種）。
+// v が無いものだけが、上の対応表を引く必要のある古い判定。
 function isLegacyJudgment(j){
-  return !j || j.v !== JUDGMENT_VERSION;
+  return !j || !j.v;
 }
 function judgeLabel(judge, legacy){
   const name = judge || "";
