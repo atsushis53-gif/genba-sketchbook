@@ -301,6 +301,26 @@
     border:1px solid var(--line);border-radius:6px;background:#fff;
     color:var(--ink);padding:9px 6px;cursor:pointer;
   }
+  /* 設定の中の「ハンコの見かた」 */
+  .legend{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  .legend h3{
+    font-family:var(--mincho);font-size:.92rem;font-weight:600;
+    letter-spacing:.1em;margin-bottom:2px;
+  }
+  .legend-group{
+    font-size:.7rem;color:var(--sub);letter-spacing:.1em;margin:13px 0 4px;
+  }
+  .legend-row{display:flex;align-items:center;gap:10px;font-size:.78rem;margin:6px 0}
+  .legend-chip{
+    flex-shrink:0;width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mincho);font-weight:600;font-size:.6rem;
+    transform:rotate(-6deg);
+  }
+  .legend-chip.fact{border:2px solid var(--fact);color:var(--fact)}
+  .legend-chip.body{border:2px solid var(--body);color:var(--body)}
+  .legend-chip.after{border:2px dashed var(--after);color:var(--after)}
+  .legend-list{font-size:.76rem;line-height:1.9;margin:4px 0 0 44px;color:var(--ink)}
   .key-note{font-size:.7rem;color:var(--sub);margin-top:6px;line-height:1.6}
   .key-note.warn{color:var(--accent)}
   .settings-panel label.toggle-row{
@@ -374,6 +394,16 @@
       <input type="checkbox" id="voiceToggle"> 音声で書く
     </label>
     <div class="key-note" id="voiceNote"></div>
+    <div class="legend">
+      <h3>ハンコの見かた</h3>
+      <div class="key-note">実線＝その場にあったもの。破線＝あとから乗ったもの。種類が違うだけで、優劣はない。</div>
+      <div class="legend-group">その場にあったもの</div>
+      <div class="legend-row"><span class="legend-chip fact">事実</span>外界。カメラに映るもの</div>
+      <div class="legend-row"><span class="legend-chip body">身体</span>自分の体。計器に映るもの</div>
+      <div class="legend-group">あとから乗ったもの（6種とも同じ色。序列をつけないため）</div>
+      <div class="legend-row"><span class="legend-chip after">感情</span>感情のラベル</div>
+      <div class="legend-list">思考（流れた言葉）／解釈（意味づけ・評価）／衝動（行動への傾き）／記憶（過去へ）／想像（未来へ）</div>
+    </div>
     <div class="settings-actions">
       <button id="settingsClose" type="button">閉じる</button>
       <button id="settingsSave" type="button">保存</button>
@@ -444,7 +474,9 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 【コメント】
 - あとから乗ったものには、質問形の補助質問を添える。
   感情・思考・解釈・衝動 → 「そのとき体はどうなってた?」「その前に目に入ったものは?」の系統。
-  記憶・想像 → 「いま体はどうなってる?」の系統（今から離れているので、今へ戻す）。
+  記憶・想像 → 今へ戻す系統（今から離れているので、今へ戻す）。入り口は一つではない。
+  「いま体はどうなってる?」「今、体のどこかに力が入ってる?」「今この瞬間、息はどうなってる?」など、
+  複数の入り口がある。同じ付箋の中では、別の入り口を使う。
 - 解釈と感情のうち、どこかで読んだような言い回し（批評語・出来合いのラベル。
   「重厚感がある」「絶妙」「統一されている」「くやしい」など）には、体を問う代わりに、
   出所を問うてもよい。「これは自分の言葉? どこかで読んだ言葉?」の系統。
