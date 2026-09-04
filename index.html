@@ -109,7 +109,20 @@
     padding:0 4px;margin-right:7px;font-family:var(--gothic);
     vertical-align:.14em;line-height:1.5;
   }
-  .form-actions{display:flex;justify-content:flex-end;margin-top:12px}
+  /* 現場の使い回し（直近を1タップで） */
+  .place-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .place-chip{
+    background:none;border:1px solid var(--line);border-radius:13px;
+    color:var(--sub);font-family:var(--mincho);font-size:.74rem;
+    padding:3px 11px;cursor:pointer;
+  }
+  .form-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:12px}
+  .mic-btn{
+    background:none;border:1px solid var(--line);border-radius:6px;
+    color:var(--sub);font-family:var(--gothic);font-size:.78rem;
+    padding:8px 14px;cursor:pointer;
+  }
+  .mic-btn.on{color:var(--utsuru);border-color:var(--utsuru)}
   #saveBtn{
     font-family:var(--mincho);
     background:var(--ink);color:var(--card);
@@ -216,6 +229,14 @@
     padding-left:10px;margin-top:6px;line-height:1.7;
   }
 
+  /* 過去を開く／たたむ */
+  .more-row{display:flex;justify-content:center;margin:4px 2px 20px}
+  .more-row button{
+    background:none;border:1px solid var(--line);border-radius:14px;
+    color:var(--sub);font-family:var(--gothic);font-size:.75rem;
+    padding:6px 18px;cursor:pointer;
+  }
+
   .empty{
     text-align:center;color:#B4B6AE;font-family:var(--mincho);
     font-size:.85rem;padding:36px 0;letter-spacing:.1em;
@@ -246,12 +267,12 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* ---- 設定 ---- */
-  #settingsOverlay{
+  #settingsOverlay,#backupOverlay{
     position:fixed;inset:0;background:rgba(38,40,42,.35);
     display:none;align-items:center;justify-content:center;
     padding:20px;z-index:40;
   }
-  #settingsOverlay.open{display:flex}
+  #settingsOverlay.open,#backupOverlay.open{display:flex}
   .settings-panel{
     background:var(--card);border-radius:12px;
     width:100%;max-width:420px;
@@ -267,12 +288,30 @@
   }
   .settings-panel input[type=password],
   .settings-panel input[type=text],
+  .settings-panel input[type=file],
+  .settings-panel textarea,
   .settings-panel select{
     width:100%;border:1px solid var(--line);border-radius:6px;
     padding:9px 10px;font-size:.9rem;background:#fff;
     font-family:var(--gothic);color:var(--ink);outline:none;
   }
+  .settings-panel textarea{
+    min-height:74px;resize:vertical;font-size:.8rem;line-height:1.6;
+  }
+  .settings-panel input[type=file]{display:none}
+  .file-btn{
+    display:block;text-align:center;cursor:pointer;
+    border:1px solid var(--line);border-radius:6px;background:#fff;
+    color:var(--ink);font-family:var(--gothic);font-size:.82rem;padding:9px 6px;
+  }
+  .settings-panel .row-actions{display:flex;gap:10px;margin-top:10px}
+  .settings-panel .row-actions button{
+    flex:1;font-family:var(--gothic);font-size:.82rem;
+    border:1px solid var(--line);border-radius:6px;background:#fff;
+    color:var(--ink);padding:9px 6px;cursor:pointer;
+  }
   .key-note{font-size:.7rem;color:var(--sub);margin-top:6px;line-height:1.6}
+  .key-note.warn{color:var(--utsuru)}
   .settings-panel label.toggle-row{
     display:flex;align-items:center;gap:8px;
     font-size:.85rem;color:var(--ink);letter-spacing:0;
@@ -283,8 +322,8 @@
     font-family:var(--gothic);font-size:.85rem;border-radius:6px;
     padding:8px 18px;cursor:pointer;
   }
-  #settingsSave{background:var(--ink);color:var(--card);border:none}
-  #settingsClose{background:none;border:1px solid var(--line);color:var(--sub)}
+  #settingsSave,#importSave{background:var(--ink);color:var(--card);border:none}
+  #settingsClose,#backupClose{background:none;border:1px solid var(--line);color:var(--sub)}
   .show-key{
     background:none;border:none;color:var(--sub);font-size:.72rem;
     text-decoration:underline;cursor:pointer;margin-top:4px;font-family:var(--gothic);
@@ -306,6 +345,7 @@
     <label for="placeInput">現場（どこで・何の前で）</label>
     <input id="placeInput" type="text" autocomplete="off"
       placeholder="例：車の中／写真集・帝国ホテルのページ／夕方の現場">
+    <div id="placeChips" class="place-chips" hidden></div>
     <textarea id="textInput"
       placeholder="今、息どうなった？目はどこ行った？&#10;単語三つでいい。理由禁止。「〜と思う」禁止。"></textarea>
     <div id="dualInputs" hidden>
@@ -317,12 +357,14 @@
     <div class="hint">型のヒント：「（見た事実・起きたこと）。直後、（体の変化）」</div>
     <div class="hint">読者は未来の自分だけ。詩を狙わない。下手なほど信用できる。</div>
     <div class="form-actions">
+      <button id="micBtn" class="mic-btn" type="button" hidden>話す</button>
       <button id="saveBtn" type="button">書き留める</button>
     </div>
   </section>
 
   <div class="tools">
     <button id="exportBtn" type="button">全件を書き出す</button>
+    <button id="backupBtn" type="button">控えを取る・戻す</button>
   </div>
 
   <main id="entryList"></main>
@@ -342,9 +384,37 @@
       <input type="checkbox" id="twoLineToggle"> 二行写生モード（実験中）
     </label>
     <div class="key-note">外（外界に映ったもの）と内（身体に映ったもの）を分けて書く。片方だけでもいい。揃っているかどうかは判定されない。</div>
+    <label class="toggle-row" for="focusToggle">
+      <input type="checkbox" id="focusToggle"> 開いたらすぐ書ける
+    </label>
+    <div class="key-note">開いた時点で本文にカーソルを置く（キーボードが出る）。運転中など、勝手に出ると困る場面があるなら切っておく。</div>
+    <label class="toggle-row" for="voiceToggle">
+      <input type="checkbox" id="voiceToggle"> 音声で書く
+    </label>
+    <div class="key-note" id="voiceNote"></div>
     <div class="settings-actions">
       <button id="settingsClose" type="button">閉じる</button>
       <button id="settingsSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="backupOverlay">
+  <div class="settings-panel">
+    <h2>控えを取る・戻す</h2>
+    <div class="key-note warn">記録はこの端末の中にしかない。ブラウザのデータを消すと全部消える。ときどきファイルにして、どこかへ置いておくこと。</div>
+    <div class="row-actions">
+      <button id="dlJsonBtn" type="button">ファイルにする</button>
+      <button id="copyJsonBtn" type="button">文字でコピー</button>
+    </div>
+    <label>戻す（ファイルを選ぶか、控えの文字を貼る）</label>
+    <input type="file" id="importFile" accept="application/json,.json,text/plain">
+    <label class="file-btn" for="importFile">ファイルを選ぶ</label>
+    <textarea id="importText" placeholder='{"app":"genba-sketch", ...'></textarea>
+    <div class="key-note">今ある付箋は消さない。同じ付箋は重ねず、無いものだけ足す。</div>
+    <div class="settings-actions">
+      <button id="backupClose" type="button">閉じる</button>
+      <button id="importSave" type="button">取り込む</button>
     </div>
   </div>
 </div>
@@ -356,6 +426,9 @@ const STORE_KEY   = "genba_sketch_entries";
 const API_KEY_KEY = "genba_sketch_apikey";
 const TWO_LINE_KEY = "genba_sketch_twoline";
 const COLLAPSE_KEY = "genba_sketch_collapsed";
+const FOCUS_KEY = "genba_sketch_focus";
+const VOICE_KEY = "genba_sketch_voice";
+const RECENT_COUNT = 3;   // 開いた直後に見せる件数。過去は見に行ったときだけ出す
 const MODEL = "claude-sonnet-5"; // 仕分けモデルは固定（変えたくなったらここを書き換える）
 // 判定名を「写生／省略／解釈」に改めた版。v が無い判定は旧名称で保存されている。
 const JUDGMENT_VERSION = 2;
@@ -423,6 +496,24 @@ function escapeHtml(s){
   return String(s)
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+// クリップボードAPIが使えない環境向けのフォールバック込み
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e2){ ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
 }
 let toastTimer = null;
 function showToast(msg){
@@ -542,43 +633,68 @@ function loadCollapsed(){
 function saveCollapsed(set){
   localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
 }
+// 直近の「現場」を1タップで入れられるようにする（同じ場所を何度も打たないため）
+function renderPlaceChips(entries){
+  const box = document.getElementById("placeChips");
+  const seen = [];
+  for (const e of entries){
+    const place = (e.place || "").trim();
+    if (place && !seen.includes(place)) seen.push(place);
+    if (seen.length >= 3) break;
+  }
+  box.innerHTML = seen.map(p => `<button type="button" class="place-chip">${escapeHtml(p)}</button>`).join("");
+  box.hidden = seen.length === 0;
+}
+
+let showAll = false; // 開くたびに畳んだ状態から始める（保存しない）
+
 function render(){
   const list = document.getElementById("entryList");
   const entries = loadEntries();
+  renderPlaceChips(entries);
+
   if (entries.length === 0){
     list.innerHTML = '<div class="empty">まだ何もない。それでいい。</div>';
     return;
   }
 
-  // 全部が同じ月のうちは区切りを出さず、ただ並べる
-  const months = [...new Set(entries.map(e => monthKey(e.date)))];
-  if (months.length <= 1){
-    list.innerHTML = entries.map(entryHtml).join("");
+  // 開いた直後は直近だけ。読者は未来の自分だけなので、今の自分は読まなくていい。
+  if (!showAll && entries.length > RECENT_COUNT){
+    list.innerHTML = entries.slice(0, RECENT_COUNT).map(entryHtml).join("") +
+      `<div class="more-row"><button type="button" data-act="showall">これまでを見る（残り${entries.length - RECENT_COUNT}件）</button></div>`;
     return;
   }
 
-  const collapsed = loadCollapsed();
-  const counts = {};
-  for (const e of entries) counts[monthKey(e.date)] = (counts[monthKey(e.date)] || 0) + 1;
-
   let html = "";
-  let cur = null;
-  for (const e of entries){
-    const mk = monthKey(e.date);
-    if (mk !== cur){
-      if (cur !== null) html += "</div>";
-      cur = mk;
-      const closed = collapsed.has(mk);
-      html += `<div class="month-header" data-month="${escapeHtml(mk)}">
-        <span class="month-arrow">${closed ? "▸" : "▾"}</span>${escapeHtml(mk)}
-        <span class="month-line"></span>
-        <span class="month-count">${counts[mk]}件</span>
-      </div>`;
-      html += `<div class="month-group"${closed ? " hidden" : ""}>`;
+  // 全部が同じ月のうちは区切りを出さず、ただ並べる
+  const months = [...new Set(entries.map(e => monthKey(e.date)))];
+  if (months.length <= 1){
+    html = entries.map(entryHtml).join("");
+  } else {
+    const collapsed = loadCollapsed();
+    const counts = {};
+    for (const e of entries) counts[monthKey(e.date)] = (counts[monthKey(e.date)] || 0) + 1;
+    let cur = null;
+    for (const e of entries){
+      const mk = monthKey(e.date);
+      if (mk !== cur){
+        if (cur !== null) html += "</div>";
+        cur = mk;
+        const closed = collapsed.has(mk);
+        html += `<div class="month-header" data-month="${escapeHtml(mk)}">
+          <span class="month-arrow">${closed ? "▸" : "▾"}</span>${escapeHtml(mk)}
+          <span class="month-line"></span>
+          <span class="month-count">${counts[mk]}件</span>
+        </div>`;
+        html += `<div class="month-group"${closed ? " hidden" : ""}>`;
+      }
+      html += entryHtml(e);
     }
-    html += entryHtml(e);
+    html += "</div>";
   }
-  html += "</div>";
+  if (entries.length > RECENT_COUNT){
+    html += `<div class="more-row"><button type="button" data-act="fold">たたむ</button></div>`;
+  }
   list.innerHTML = html;
 }
 
@@ -591,6 +707,86 @@ function applyWriteMode(){
   document.getElementById("textInput").hidden = on;
   document.getElementById("dualInputs").hidden = !on;
 }
+
+/* ---------- 開いたらすぐ書ける ---------- */
+function focusOnOpen(){
+  if (localStorage.getItem(FOCUS_KEY) !== "1") return;
+  const el = document.getElementById(twoLineOn() ? "outerInput" : "textInput");
+  if (el) el.focus();
+}
+
+/* ---------- 音声で書く（対応端末のみ） ---------- */
+// 端末のブラウザが持つ音声認識を使う。実装によっては音声が外部へ送られるため、
+// 設定画面にその旨を明記している。
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let listening = false;
+let lastField = null;
+function voiceOn(){
+  return !!SpeechRec && localStorage.getItem(VOICE_KEY) === "1";
+}
+function applyVoiceMode(){
+  const btn = document.getElementById("micBtn");
+  btn.hidden = !voiceOn();
+  if (btn.hidden && listening) stopVoice();
+}
+function voiceField(){
+  if (twoLineOn()){
+    if (lastField && (lastField.id === "outerInput" || lastField.id === "innerInput")) return lastField;
+    return document.getElementById("outerInput");
+  }
+  return document.getElementById("textInput");
+}
+function updateMicBtn(){
+  const btn = document.getElementById("micBtn");
+  btn.textContent = listening ? "聞いている…" : "話す";
+  btn.classList.toggle("on", listening);
+}
+function startVoice(){
+  if (!SpeechRec) return;
+  const field = voiceField();
+  const base = field.value;
+  recognizer = new SpeechRec();
+  recognizer.lang = "ja-JP";
+  recognizer.interimResults = true;
+  recognizer.continuous = false;
+  recognizer.onresult = (ev) => {
+    let heard = "";
+    for (let i = 0; i < ev.results.length; i++) heard += ev.results[i][0].transcript;
+    field.value = base ? (base.endsWith("\n") ? base : base + "\n") + heard : heard;
+  };
+  recognizer.onerror = (ev) => {
+    showToast(ev.error === "not-allowed" || ev.error === "service-not-allowed"
+      ? "マイクが使えない。権限を確かめて" : "聞き取れなかった");
+  };
+  recognizer.onend = () => { listening = false; updateMicBtn(); };
+  try{
+    recognizer.start();
+    listening = true;
+  }catch(e){
+    listening = false;
+    showToast("音声を始められなかった");
+  }
+  updateMicBtn();
+}
+function stopVoice(){
+  if (recognizer){ try{ recognizer.stop(); }catch(e){ /* 既に止まっている */ } }
+  listening = false;
+  updateMicBtn();
+}
+["textInput","outerInput","innerInput"].forEach((id) => {
+  document.getElementById(id).addEventListener("focus", (ev) => { lastField = ev.target; });
+});
+document.getElementById("micBtn").addEventListener("click", () => {
+  if (listening) stopVoice(); else startVoice();
+});
+
+/* ---------- 現場チップ ---------- */
+document.getElementById("placeChips").addEventListener("click", (ev) => {
+  const chip = ev.target.closest(".place-chip");
+  if (!chip) return;
+  document.getElementById("placeInput").value = chip.textContent;
+});
 
 /* ---------- 保存 ---------- */
 document.getElementById("saveBtn").addEventListener("click", () => {
@@ -655,7 +851,17 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
 
   const btn = ev.target.closest("button[data-act]");
   if (!btn) return;
+
+  // 過去を開く／たたむ（付箋のボタンではないので、先に処理する）
+  if (btn.dataset.act === "showall" || btn.dataset.act === "fold"){
+    showAll = btn.dataset.act === "showall";
+    render();
+    if (!showAll) window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
   const card = btn.closest(".entry");
+  if (!card) return;
   const id = card.dataset.id;
 
   if (btn.dataset.act === "delete"){
@@ -788,26 +994,110 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     lines.push("---");
     lines.push("");
   }
-  const textAll = lines.join("\n");
-  try{
-    await navigator.clipboard.writeText(textAll);
-    showToast(`全${entries.length}件をコピーした`);
-  }catch(e){
-    // クリップボードAPIが使えない環境向けフォールバック
-    const ta = document.createElement("textarea");
-    ta.value = textAll;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try{
-      document.execCommand("copy");
-      showToast(`全${entries.length}件をコピーした`);
-    }catch(e2){
-      showToast("コピーに失敗した");
-    }
-    document.body.removeChild(ta);
+  const ok = await copyText(lines.join("\n"));
+  showToast(ok ? `全${entries.length}件をコピーした` : "コピーに失敗した");
+});
+
+/* ---------- 控え（この端末の外へ出す・戻す） ---------- */
+// 「全件を書き出す」は読むための整形テキストで、そこからは元に戻せない。
+// 控えは元に戻すためのもの。付箋も判定もそのままの形で持ち出す。
+const BACKUP_TAG = "genba-sketch";
+function backupText(entries){
+  return JSON.stringify({
+    app: BACKUP_TAG,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    entries
+  }, null, 2);
+}
+function backupFileName(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  return `genba-sketch-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+}
+function parseBackup(raw){
+  const data = JSON.parse(raw);
+  const arr = Array.isArray(data) ? data : (data && data.entries);
+  if (!Array.isArray(arr)) throw new Error("形式が違う");
+  // 最低限そろっているものだけ受け取る
+  return arr.filter(e => e && typeof e === "object" && e.id && e.date);
+}
+// 今あるものは消さない。同じ付箋は重ねず、無いものだけ足す。
+function mergeEntries(incoming){
+  const entries = loadEntries();
+  const have = new Set(entries.map(e => e.id));
+  let added = 0;
+  for (const e of incoming){
+    if (have.has(e.id)) continue;
+    entries.push(e);
+    have.add(e.id);
+    added++;
   }
+  entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+  saveEntries(entries);
+  return { added, skipped: incoming.length - added };
+}
+
+const backupOverlay = document.getElementById("backupOverlay");
+document.getElementById("backupBtn").addEventListener("click", () => {
+  document.getElementById("importText").value = "";
+  document.getElementById("importFile").value = "";
+  backupOverlay.classList.add("open");
+});
+document.getElementById("backupClose").addEventListener("click", () => backupOverlay.classList.remove("open"));
+backupOverlay.addEventListener("click", ev => { if (ev.target === backupOverlay) backupOverlay.classList.remove("open"); });
+
+document.getElementById("dlJsonBtn").addEventListener("click", () => {
+  const entries = loadEntries();
+  if (entries.length === 0){ showToast("まだ何もない"); return; }
+  const blob = new Blob([backupText(entries)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = backupFileName();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`${entries.length}件をファイルにした`);
+});
+
+document.getElementById("copyJsonBtn").addEventListener("click", async () => {
+  const entries = loadEntries();
+  if (entries.length === 0){ showToast("まだ何もない"); return; }
+  const ok = await copyText(backupText(entries));
+  showToast(ok ? `${entries.length}件の控えをコピーした` : "コピーに失敗した");
+});
+
+document.getElementById("importFile").addEventListener("change", (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById("importText").value = String(reader.result || "");
+    showToast("読み込んだ。「取り込む」を押して");
+  };
+  reader.onerror = () => showToast("ファイルを読めなかった");
+  reader.readAsText(file);
+});
+
+document.getElementById("importSave").addEventListener("click", () => {
+  const raw = document.getElementById("importText").value.trim();
+  if (!raw){ showToast("ファイルを選ぶか、控えを貼って"); return; }
+  let incoming;
+  try{
+    incoming = parseBackup(raw);
+  }catch(e){
+    showToast("控えとして読めなかった");
+    return;
+  }
+  if (incoming.length === 0){ showToast("付箋が入っていない"); return; }
+  const { added, skipped } = mergeEntries(incoming);
+  document.getElementById("importText").value = "";
+  document.getElementById("importFile").value = "";
+  render();
+  if (added === 0) showToast("全部すでにあった");
+  else showToast(`${added}件を戻した${skipped ? `（${skipped}件は既にあった）` : ""}`);
 });
 
 /* ---------- 設定 ---------- */
@@ -815,6 +1105,13 @@ const overlay = document.getElementById("settingsOverlay");
 function openSettings(){
   document.getElementById("apiKeyInput").value = localStorage.getItem(API_KEY_KEY) || "";
   document.getElementById("twoLineToggle").checked = twoLineOn();
+  document.getElementById("focusToggle").checked = localStorage.getItem(FOCUS_KEY) === "1";
+  const voiceBox = document.getElementById("voiceToggle");
+  voiceBox.checked = voiceOn();
+  voiceBox.disabled = !SpeechRec;
+  document.getElementById("voiceNote").textContent = SpeechRec
+    ? "本文の横に「話す」が出る。音声はブラウザの仕組みで外部へ送られることがある（付箋そのものは端末の中だけ）。それが気になる場面では切っておく。"
+    : "この端末のブラウザは音声認識に対応していない。";
   overlay.classList.add("open");
 }
 function closeSettings(){
@@ -829,7 +1126,12 @@ document.getElementById("settingsSave").addEventListener("click", () => {
   else localStorage.removeItem(API_KEY_KEY);
   if (document.getElementById("twoLineToggle").checked) localStorage.setItem(TWO_LINE_KEY, "1");
   else localStorage.removeItem(TWO_LINE_KEY);
+  if (document.getElementById("focusToggle").checked) localStorage.setItem(FOCUS_KEY, "1");
+  else localStorage.removeItem(FOCUS_KEY);
+  if (document.getElementById("voiceToggle").checked) localStorage.setItem(VOICE_KEY, "1");
+  else localStorage.removeItem(VOICE_KEY);
   applyWriteMode();
+  applyVoiceMode();
   closeSettings();
   showToast("設定を保存した");
 });
@@ -861,7 +1163,9 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
 }
 
 applyWriteMode();
+applyVoiceMode();
 render();
+focusOnOpen();
 </script>
 </body>
 </html>
