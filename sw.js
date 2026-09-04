@@ -1,7 +1,7 @@
 // 現場スケッチ service worker — オフラインでも開けるようにする最小構成
 // 方針：画面（HTML）はネットワーク優先。電波が悪い・圏外のときだけキャッシュを出す。
 // 　　　アイコンやmanifestはキャッシュ優先＋裏で更新。
-const CACHE_NAME = "genba-sketch-v5";
+const CACHE_NAME = "genba-sketch-v6";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 const NET_TIMEOUT = 2500; // これを過ぎたらキャッシュを出す（裏の取得は続ける）
 
