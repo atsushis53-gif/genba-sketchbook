@@ -264,7 +264,7 @@
     padding:10px 22px;border-radius:24px;
     opacity:0;pointer-events:none;
     transition:opacity .25s,transform .25s;
-    white-space:nowrap;z-index:50;
+    max-width:calc(100vw - 40px);text-align:center;line-height:1.6;z-index:50;
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -545,12 +545,12 @@ async function copyText(text){
   }
 }
 let toastTimer = null;
-function showToast(msg){
+function showToast(msg, ms){
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), ms || 2200);
 }
 
 /* ---------- 描画 ---------- */
@@ -932,6 +932,21 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
 });
 
 /* ---------- Claude 判定 ---------- */
+// 何に失敗したのかを画面に出す。スマホではコンソールを見られないので、
+// 「失敗した」だけだと次の一手が決められない。
+function judgeErrorText(err){
+  const msg = String((err && err.message) || err || "");
+  if (msg === "切れた")           return "返事が長すぎて切れた。もう一度試して";
+  if (msg === "形式が想定と違う") return "返事の形が違った。もう一度試して";
+  if (msg.startsWith("HTTP 401") || msg.startsWith("HTTP 403")) return "APIキーが通らない。設定を確かめて";
+  if (msg.startsWith("HTTP 429")) return "回数の制限。少し待ってもう一度";
+  if (msg.startsWith("HTTP 5"))   return "Anthropic側が混んでいる。少し待って";
+  if (msg.startsWith("HTTP "))    return msg.slice(0, 90);
+  if (err instanceof SyntaxError) return "返事を読めなかった。もう一度試して";
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) return "つながらない。電波を確かめて";
+  return "仕分けに失敗した：" + msg.slice(0, 70);
+}
+
 // mode: "split"（文ごとに分ける）／"whole"（付箋全体を一つとして見る）
 async function judgeEntry(id, btn, mode){
   if (!JUDGE_MODES[mode]) mode = "split";
@@ -963,7 +978,7 @@ async function judgeEntry(id, btn, mode){
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1000,
+        max_tokens: 4000,
         system: systemPromptFor(mode),
         messages: [{
           role: "user",
@@ -976,6 +991,7 @@ async function judgeEntry(id, btn, mode){
       throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);
     }
     const data = await res.json();
+    if (data.stop_reason === "max_tokens") throw new Error("切れた");
     const textOut = (data.content || [])
       .filter(b => b.type === "text")
       .map(b => b.text)
@@ -994,7 +1010,7 @@ async function judgeEntry(id, btn, mode){
     render();
   }catch(err){
     console.error("仕分けエラー:", err);
-    showToast("仕分けに失敗した。少し待ってもう一度。");
+    showToast(judgeErrorText(err), 7000); // 読んで対処するための時間
     judgeBtns.forEach(b => { b.disabled = false; });
     btn.classList.remove("judging");
     btn.textContent = label;
