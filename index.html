@@ -193,6 +193,15 @@
   .stamp.unknown{
     border:2px dashed var(--unknown);color:var(--unknown);font-size:1rem;
   }
+  .judgment-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+    font-size:.7rem;color:var(--sub);letter-spacing:.1em;margin-bottom:10px;
+  }
+  .undo-btn{
+    background:none;border:none;padding:0;cursor:pointer;
+    color:#B4B6AE;font-size:.7rem;text-decoration:underline;
+    font-family:var(--gothic);flex-shrink:0;
+  }
   .verdict-body{min-width:0}
   .verdict-text{
     font-family:var(--mincho);font-size:.9rem;line-height:1.7;
@@ -377,10 +386,12 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 const JUDGE_MODES = {
   split: {
     label: "分けて仕分ける",
+    head:  "分けて仕分けた",
     rule: "入力が複数文なら文ごとに分けて判定する。"
   },
   whole: {
     label: "まとめて仕分ける",
+    head:  "まとめて仕分けた",
     rule: "入力は文ごとに分けない。付箋全体を一つの流れとして読み、verdictsは必ず1件だけ返す。そのtextには入力全体をそのまま入れ、judgeは全体としてどれかを一つ選ぶ。"
   }
 };
@@ -446,10 +457,29 @@ function judgeLabel(judge, legacy){
   const name = judge || "";
   return legacy ? (LEGACY_JUDGE[name] || name) : name;
 }
-function renderJudgment(j){
+// 一つの付箋は、モードごとに仕分け結果を持てる（両方持てる）。
+// e.judgment は旧形式（モードの区別が無かった頃の一件）。表示順は 旧→分けて→まとめて。
+function entryResults(e){
+  const out = [];
+  if (e.judgment) out.push({ mode: "", head: "仕分けた", judgment: e.judgment });
+  for (const mode of Object.keys(JUDGE_MODES)){
+    const j = e.judgments && e.judgments[mode];
+    if (j) out.push({ mode, head: JUDGE_MODES[mode].head, judgment: j });
+  }
+  return out;
+}
+function hasResult(e, mode){
+  return !!(e.judgments && e.judgments[mode]);
+}
+function renderJudgment(res){
+  const j = res.judgment;
   if (!j || !Array.isArray(j.verdicts)) return "";
   const legacy = isLegacyJudgment(j);
-  let html = '<div class="judgment">';
+  let html = `<div class="judgment">
+      <div class="judgment-head">
+        <span>${escapeHtml(res.head)}</span>
+        <button class="undo-btn" type="button" data-act="unjudge" data-mode="${res.mode}">仕分けを消す</button>
+      </div>`;
   for (const v of j.verdicts){
     const name = judgeLabel(v.judge, legacy);
     const cls = judgeClass(name);
@@ -478,11 +508,13 @@ function renderEntryText(e){
   }
   return `<div class="entry-text">${escapeHtml(e.text)}</div>`;
 }
-// 仕分けは任意。分け方だけ選ぶ（分けて／まとめて）。
-function judgeButtonsHtml(){
-  return Object.entries(JUDGE_MODES).map(([mode, m]) =>
-    `<button class="judge-btn" type="button" data-act="judge" data-mode="${mode}">${escapeHtml(m.label)}</button>`
-  ).join("\n        ");
+// 仕分けは任意。まだ結果が無いモードのボタンだけ出す（片方を仕分けたあとも、もう片方は押せる）。
+function judgeButtonsHtml(e){
+  return Object.entries(JUDGE_MODES)
+    .filter(([mode]) => !hasResult(e, mode))
+    .map(([mode, m]) =>
+      `<button class="judge-btn" type="button" data-act="judge" data-mode="${mode}">${escapeHtml(m.label)}</button>`)
+    .join("\n        ");
 }
 function entryHtml(e){
   return `
@@ -490,9 +522,9 @@ function entryHtml(e){
       <div class="entry-date">${formatDate(e.date)}</div>
       ${e.place ? `<div class="entry-place">${escapeHtml(e.place)}</div>` : ""}
       ${renderEntryText(e)}
-      ${renderJudgment(e.judgment)}
+      ${entryResults(e).map(renderJudgment).join("")}
       <div class="entry-actions">
-        ${e.judgment ? "" : judgeButtonsHtml()}
+        ${judgeButtonsHtml(e)}
         <button class="del-btn" type="button" data-act="delete">消す</button>
       </div>
     </article>
@@ -633,6 +665,19 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
     return;
   }
 
+  if (btn.dataset.act === "unjudge"){
+    if (!confirm("この仕分けを消す？　もう一度仕分け直せる。")) return;
+    const entries = loadEntries();
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    const mode = btn.dataset.mode;
+    if (mode && entry.judgments) delete entry.judgments[mode];
+    else delete entry.judgment; // 旧形式（モードの区別が無い一件）
+    saveEntries(entries);
+    render();
+    return;
+  }
+
   if (btn.dataset.act === "judge"){
     await judgeEntry(id, btn, btn.dataset.mode);
   }
@@ -641,6 +686,7 @@ document.getElementById("entryList").addEventListener("click", async (ev) => {
 /* ---------- Claude 判定 ---------- */
 // mode: "split"（文ごとに分ける）／"whole"（付箋全体を一つとして見る）
 async function judgeEntry(id, btn, mode){
+  if (!JUDGE_MODES[mode]) mode = "split";
   const apiKey = localStorage.getItem(API_KEY_KEY);
   if (!apiKey){
     showToast("先にAPIキーを設定して");
@@ -694,7 +740,8 @@ async function judgeEntry(id, btn, mode){
     if (!Array.isArray(judgment.verdicts)) throw new Error("形式が想定と違う");
 
     judgment.v = JUDGMENT_VERSION; // 新名称で保存したことの目印
-    entry.judgment = judgment;
+    entry.judgments = entry.judgments || {};
+    entry.judgments[mode] = judgment; // モードごとに別々に持つ。もう片方は消さない
     saveEntries(entries);
     render();
   }catch(err){
@@ -726,13 +773,16 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     } else {
       lines.push(e.text);
     }
-    if (e.judgment && Array.isArray(e.judgment.verdicts)){
-      const legacy = isLegacyJudgment(e.judgment);
+    for (const res of entryResults(e)){
+      const j = res.judgment;
+      if (!Array.isArray(j.verdicts)) continue;
+      const legacy = isLegacyJudgment(j);
       lines.push("");
-      for (const v of e.judgment.verdicts){
+      lines.push(`〈${res.head}〉`);
+      for (const v of j.verdicts){
         lines.push(`【${judgeLabel(v.judge, legacy) || "？"}】${v.text}${v.comment ? `（${v.comment}）` : ""}`);
       }
-      if (e.judgment.overall) lines.push(`― ${e.judgment.overall}`);
+      if (j.overall) lines.push(`― ${j.overall}`);
     }
     lines.push("");
     lines.push("---");
