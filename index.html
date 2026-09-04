@@ -92,18 +92,7 @@
   }
   .hint + .hint{margin-top:2px}
 
-  /* ---- 二行写生モード（実験中） ---- */
-  .dual-label{
-    display:block;font-size:.72rem;color:var(--sub);
-    letter-spacing:.12em;margin-top:14px;
-  }
-  .dual-ta{
-    width:100%;min-height:52px;border:none;border-bottom:1px solid var(--line);
-    background:transparent;font-family:var(--mincho);font-size:1.02rem;line-height:1.8;
-    padding:6px 2px;outline:none;resize:vertical;color:var(--ink);
-  }
-  .dual-ta::placeholder{color:#B4B6AE;font-family:var(--mincho)}
-  .dual-ta:focus{border-bottom-color:var(--accent)}
+  /* 二行で書いていた頃の付箋（外／内）を表示するためのタグ */
   .line-tag{
     display:inline-block;font-size:.66rem;color:var(--sub);
     border:1px solid var(--line);border-radius:4px;
@@ -350,12 +339,6 @@
     <div id="placeChips" class="place-chips" hidden></div>
     <textarea id="textInput"
       placeholder="今、息どうなった？目はどこ行った？&#10;単語三つでいい。理由禁止。「〜と思う」禁止。"></textarea>
-    <div id="dualInputs" hidden>
-      <label class="dual-label" for="outerInput">外（カメラが外界に映したもの）</label>
-      <textarea id="outerInput" class="dual-ta" placeholder="例：明細に賞与の行を見た"></textarea>
-      <label class="dual-label" for="innerInput">内（身体に映ったもの）</label>
-      <textarea id="innerInput" class="dual-ta" placeholder="例：直後、頭に血が上る"></textarea>
-    </div>
     <div class="hint">型のヒント：「（見た事実・起きたこと）。直後、（体の変化）」</div>
     <div class="hint">読者は未来の自分だけ。詩を狙わない。下手なほど信用できる。</div>
     <div class="hint">事実でも、体でも、感情でも、頭に流れた言葉でもいい。仕分けは種類を見るだけで、優劣はない。</div>
@@ -383,10 +366,6 @@
     <input id="apiKeyInput" type="password" autocomplete="off" placeholder="sk-ant-...">
     <button class="show-key" id="showKeyBtn" type="button">表示する</button>
     <div class="key-note">キーはこの端末のブラウザ内（localStorage）にだけ保存される。外部には送らない（判定時にAnthropicのAPIへ直接送信するのみ）。</div>
-    <label class="toggle-row" for="twoLineToggle">
-      <input type="checkbox" id="twoLineToggle"> 二行写生モード（実験中）
-    </label>
-    <div class="key-note">外（外界に映ったもの）と内（身体に映ったもの）を分けて書く。片方だけでもいい。揃っているかどうかは判定されない。</div>
     <label class="toggle-row" for="focusToggle">
       <input type="checkbox" id="focusToggle"> 開いたらすぐ書ける
     </label>
@@ -427,7 +406,6 @@
 
 const STORE_KEY   = "genba_sketch_entries";
 const API_KEY_KEY = "genba_sketch_apikey";
-const TWO_LINE_KEY = "genba_sketch_twoline";
 const COLLAPSE_KEY = "genba_sketch_collapsed";
 const FOCUS_KEY = "genba_sketch_focus";
 const VOICE_KEY = "genba_sketch_voice";
@@ -483,7 +461,6 @@ const SYSTEM_PROMPT = `あなたは「現場スケッチ」の仕分け係。ユ
 - 感情ラベルの候補を提示しない（「これは怒り?くやしさ?」等の選択肢を出さない）。感情と仕分けるのはよいが、どの感情かの分化は本人の事後に委ねる。
 - 褒めすぎない。励ましの決まり文句・ポジティブ変換をしない。事実として仕分ける。ただし冷たくはなく、短く率直に。
 - 読者は未来の本人だけ。他人にわかりやすいかは判定基準にしない。
-- スケッチが外界の行と身体の行の二行で来ることがあるが、二行揃っているかは判定しない。片方だけで十分。
 
 【出力】JSONのみ。前置き・コードフェンス禁止。形式：
 {"verdicts":[{"text":"（元の一文）","judge":"事実|身体|感情|思考|解釈|衝動|記憶|想像","comment":"短い一言（あとから乗ったものには質問形の補助質問を含める）"}],"overall":"全体への一言（2文以内。命令形は使わない。記憶・想像・解釈に偏っていたら、そのことだけ短く伝える。責めない）"}`;
@@ -744,20 +721,10 @@ function render(){
   list.innerHTML = html;
 }
 
-/* ---------- 書き方モード（一行／二行写生） ---------- */
-function twoLineOn(){
-  return localStorage.getItem(TWO_LINE_KEY) === "1";
-}
-function applyWriteMode(){
-  const on = twoLineOn();
-  document.getElementById("textInput").hidden = on;
-  document.getElementById("dualInputs").hidden = !on;
-}
-
 /* ---------- 開いたらすぐ書ける ---------- */
 function focusOnOpen(){
   if (localStorage.getItem(FOCUS_KEY) !== "1") return;
-  const el = document.getElementById(twoLineOn() ? "outerInput" : "textInput");
+  const el = document.getElementById("textInput");
   if (el) el.focus();
 }
 
@@ -767,7 +734,6 @@ function focusOnOpen(){
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognizer = null;
 let listening = false;
-let lastField = null;
 function voiceOn(){
   return !!SpeechRec && localStorage.getItem(VOICE_KEY) === "1";
 }
@@ -777,10 +743,6 @@ function applyVoiceMode(){
   if (btn.hidden && listening) stopVoice();
 }
 function voiceField(){
-  if (twoLineOn()){
-    if (lastField && (lastField.id === "outerInput" || lastField.id === "innerInput")) return lastField;
-    return document.getElementById("outerInput");
-  }
   return document.getElementById("textInput");
 }
 function updateMicBtn(){
@@ -820,9 +782,6 @@ function stopVoice(){
   listening = false;
   updateMicBtn();
 }
-["textInput","outerInput","innerInput"].forEach((id) => {
-  document.getElementById(id).addEventListener("focus", (ev) => { lastField = ev.target; });
-});
 document.getElementById("micBtn").addEventListener("click", () => {
   if (listening) stopVoice(); else startVoice();
 });
@@ -845,33 +804,15 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     judgment: null
   };
 
-  if (twoLineOn()){
-    const outerEl = document.getElementById("outerInput");
-    const innerEl = document.getElementById("innerInput");
-    const outer = outerEl.value.trim();
-    const inner = innerEl.value.trim();
-    if (!outer && !inner){
-      showToast("本文が空。一語でいい。");
-      outerEl.focus();
-      return;
-    }
-    // 片方だけでも保存できる。揃いのチェックはしない。
-    entry.outer = outer;
-    entry.inner = inner;
-    entry.text = [outer, inner].filter(Boolean).join("\n");
-    outerEl.value = "";
-    innerEl.value = "";
-  } else {
-    const textEl = document.getElementById("textInput");
-    const text = textEl.value.trim();
-    if (!text){
-      showToast("本文が空。一語でいい。");
-      textEl.focus();
-      return;
-    }
-    entry.text = text;
-    textEl.value = "";
+  const textEl = document.getElementById("textInput");
+  const text = textEl.value.trim();
+  if (!text){
+    showToast("本文が空。一語でいい。");
+    textEl.focus();
+    return;
   }
+  entry.text = text;
+  textEl.value = "";
 
   const entries = loadEntries();
   entries.unshift(entry);
@@ -1166,7 +1107,6 @@ document.getElementById("importSave").addEventListener("click", () => {
 const overlay = document.getElementById("settingsOverlay");
 function openSettings(){
   document.getElementById("apiKeyInput").value = localStorage.getItem(API_KEY_KEY) || "";
-  document.getElementById("twoLineToggle").checked = twoLineOn();
   document.getElementById("focusToggle").checked = localStorage.getItem(FOCUS_KEY) === "1";
   const voiceBox = document.getElementById("voiceToggle");
   voiceBox.checked = voiceOn();
@@ -1186,13 +1126,10 @@ document.getElementById("settingsSave").addEventListener("click", () => {
   const key = document.getElementById("apiKeyInput").value.trim();
   if (key) localStorage.setItem(API_KEY_KEY, key);
   else localStorage.removeItem(API_KEY_KEY);
-  if (document.getElementById("twoLineToggle").checked) localStorage.setItem(TWO_LINE_KEY, "1");
-  else localStorage.removeItem(TWO_LINE_KEY);
   if (document.getElementById("focusToggle").checked) localStorage.setItem(FOCUS_KEY, "1");
   else localStorage.removeItem(FOCUS_KEY);
   if (document.getElementById("voiceToggle").checked) localStorage.setItem(VOICE_KEY, "1");
   else localStorage.removeItem(VOICE_KEY);
-  applyWriteMode();
   applyVoiceMode();
   closeSettings();
   showToast("設定を保存した");
@@ -1212,7 +1149,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
   let reloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || reloading) return; // 初回登録のときは読み直す必要がない
-    const writing = ["placeInput","textInput","outerInput","innerInput"]
+    const writing = ["placeInput","textInput"]
       .some(id => { const elm = document.getElementById(id); return elm && elm.value.trim(); });
     if (writing){
       showToast("新しい版が届いた。書き留めてから開き直して");
@@ -1224,7 +1161,6 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
   navigator.serviceWorker.register("sw.js").catch(()=>{ /* 失敗しても動作に影響なし */ });
 }
 
-applyWriteMode();
 applyVoiceMode();
 render();
 focusOnOpen();
